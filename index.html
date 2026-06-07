@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Blood — Personal Blood Health Tracking</title>
+  <style>
+    :root {
+      --bg:         #090909;
+      --surface:    #111111;
+      --card:       #1a1a1a;
+      --border:     #252525;
+      --red:        #e63946;
+      --red-dim:    #b52a35;
+      --red-glow:   rgba(230, 57, 70, 0.18);
+      --text:       #f0f0f0;
+      --muted:      #777;
+      --muted-lt:   #aaa;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Hero ────────────────────────────────────────────── */
+    .logo {
+      width: 500px;
+      display: block;
+      filter: invert(1) hue-rotate(180deg);
+    }
+
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 72px 24px 64px;
+      text-align: center;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180, 20, 30, 0.25) 0%, transparent 65%),
+        var(--bg);
+    }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.12;
+      margin-bottom: 20px;
+      background: linear-gradient(160deg, #ffffff 30%, #f0b8be 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero .subtitle {
+      font-size: 1.15rem;
+      color: var(--muted-lt);
+      margin-bottom: 52px;
+      max-width: 440px;
+    }
+
+    .hero .subtitle strong {
+      color: var(--red);
+      font-weight: 600;
+    }
+
+    /* ── Upload Zone ─────────────────────────────────────── */
+    .upload-zone {
+      width: 100%;
+      max-width: 540px;
+      border: 2px dashed rgba(230, 57, 70, 0.5);
+      border-radius: 18px;
+      padding: 48px 32px 36px;
+      background: rgba(230, 57, 70, 0.03);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      animation: pulse-border 3s ease-in-out infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { border-color: rgba(230, 57, 70, 0.4); }
+      50%       { border-color: rgba(230, 57, 70, 0.75); }
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      animation: none;
+      border-color: var(--red);
+      background: rgba(230, 57, 70, 0.07);
+      box-shadow: 0 0 0 5px var(--red-glow), 0 0 50px rgba(230, 57, 70, 0.12);
+    }
+
+    .upload-icon {
+      font-size: 2.8rem;
+      display: block;
+      margin-bottom: 14px;
+      filter: drop-shadow(0 0 12px rgba(230, 57, 70, 0.6));
+    }
+
+    .upload-zone h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .upload-zone .upload-hint {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 22px;
+    }
+
+    .or-divider {
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin: 0 0 18px;
+    }
+
+    .btn-browse {
+      background: var(--red);
+      color: white;
+      border: none;
+      padding: 11px 28px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-browse:hover  { background: var(--red-dim); }
+    .btn-browse:active { transform: scale(0.97); }
+
+    .supported-labs {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 24px;
+    }
+
+    .lab-tag {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 3px 11px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+    }
+
+    /* ── Privacy Badge ───────────────────────────────────── */
+    .privacy-badge {
+      margin-top: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 7px 16px;
+      border-radius: 99px;
+    }
+
+    .green-dot {
+      width: 7px;
+      height: 7px;
+      background: #22c55e;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px #22c55e88;
+    }
+
+    /* ── Divider ─────────────────────────────────────────── */
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border) 20%, var(--border) 80%, transparent);
+      margin: 0 48px;
+    }
+
+    /* ── Features ────────────────────────────────────────── */
+    .features {
+      padding: 96px 24px 64px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      text-align: center;
+      color: var(--red);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 12px;
+    }
+
+    .features .section-sub {
+      text-align: center;
+      color: var(--muted-lt);
+      font-size: 1rem;
+      margin-bottom: 56px;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(230, 57, 70, 0.4);
+      transform: translateY(-3px);
+    }
+
+    .feat-icon {
+      width: 46px;
+      height: 46px;
+      background: rgba(230, 57, 70, 0.1);
+      border: 1px solid rgba(230, 57, 70, 0.2);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 18px;
+    }
+
+    .feature-card h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .feature-card p {
+      color: var(--muted-lt);
+      font-size: 0.875rem;
+      line-height: 1.75;
+    }
+
+    /* ── Privacy Callout ─────────────────────────────────── */
+    .privacy-callout {
+      max-width: 780px;
+      margin: 0 auto 96px;
+      padding: 0 24px;
+    }
+
+    .privacy-callout-inner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--red);
+      border-radius: 16px;
+      padding: 44px 40px;
+      text-align: center;
+    }
+
+    .privacy-callout-inner h3 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .privacy-callout-inner p {
+      color: var(--muted-lt);
+      font-size: 0.92rem;
+      line-height: 1.8;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .try-chip {
+      display: inline-block;
+      margin-top: 22px;
+      background: rgba(230, 57, 70, 0.08);
+      border: 1px solid rgba(230, 57, 70, 0.25);
+      color: #e07078;
+      font-size: 0.85rem;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-style: italic;
+    }
+
+    /* ── Footer ──────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 28px 48px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.82rem;
+      background: var(--surface);
+    }
+
+    /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 600px) {
+      header { padding: 16px 20px; }
+      .hero { padding: 52px 16px 48px; }
+      .upload-zone { padding: 36px 20px 28px; }
+      .features { padding: 72px 16px 48px; }
+      .privacy-callout { padding: 0 16px; }
+      .privacy-callout-inner { padding: 32px 24px; }
+      .section-divider { margin: 0 16px; }
+      footer { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Hero ── -->
+  <section class="hero">
+    <img src="logo-removebg-preview.png" alt="Track Blood" class="logo">
+    <h1>Track your blood<br>parameters over time</h1>
+    <p class="subtitle">
+      Upload your lab reports and get a clean CSV —&nbsp;<strong>completely private</strong>
+    </p>
+
+    <div class="upload-zone" id="dropzone">
+      <span class="upload-icon">🩸</span>
+      <h3>Drop your PDF reports here</h3>
+      <p class="upload-hint">Drag one or more blood test PDFs onto this area</p>
+      <p class="or-divider">— or —</p>
+      <button class="btn-browse" id="browseBtn">Choose Files</button>
+      <input type="file" id="fileInput" accept=".pdf" multiple hidden>
+      <div class="supported-labs">
+        <span class="lab-tag">Thyrocare</span>
+        <span class="lab-tag">SRL</span>
+        <span class="lab-tag">Metropolis</span>
+        <span class="lab-tag">Apollo</span>
+        <span class="lab-tag">Aarthi Scans</span>
+        <span class="lab-tag">& more</span>
+      </div>
+    </div>
+
+    <div class="privacy-badge">
+      <span class="green-dot"></span>
+      All extraction happens in your browser · Zero data ever leaves your device
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── Features ── -->
+  <section class="features">
+    <p class="section-label">Why Track Blood</p>
+    <h2>Your health data, finally useful</h2>
+    <p class="section-sub">Blood reports pile up in folders. Track Blood turns them into a single, clear timeline.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feat-icon">📈</div>
+        <h3>See how you're trending</h3>
+        <p>Upload reports from different dates and instantly see how your Hemoglobin, TSH, Vitamin D, or any marker has been moving — month over month, year over year.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feat-icon">🩺</div>
+        <h3>Walk into your doctor prepared</h3>
+        <p>Hand your doctor a single-page CSV with all parameters across time. They can spot a trend in seconds that would otherwise take 20 minutes of flipping through individual reports.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feat-icon">🤖</div>
+        <h3>Get AI-powered insights</h3>
+        <p>Drop the CSV into ChatGPT, Claude, or Gemini. Ask "what trends do you see?" or "which markers need attention?" Get a second opinion on your health trajectory instantly.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feat-icon">📂</div>
+        <h3>Works across lab formats</h3>
+        <p>Thyrocare, SRL, Metropolis, Apollo, Aarthi Scans — the parser recognises over 150 markers and their aliases, regardless of how each lab names or formats the test.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Privacy Callout ── -->
+  <div class="privacy-callout">
+    <div class="privacy-callout-inner">
+      <h3>🔒 Your health data never leaves your device</h3>
+      <p>
+        Track Blood runs entirely inside your browser. There is no server, no account, no upload.
+        Every PDF you drop stays on your machine — the app reads it locally, extracts the numbers,
+        and hands you a CSV. Nothing is transmitted anywhere, ever.
+      </p>
+      <span class="try-chip">
+        Want to verify? Turn off your Wi-Fi and try it — it still works perfectly.
+      </span>
+    </div>
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer>
+    Track Blood · Personal blood health tracking · Your data stays on your device, always
+  </footer>
+
+  <script>
+    const dropzone  = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+
+    browseBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', e => {
+      if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf');
+      if (files.length) handleFiles(files);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) handleFiles([...fileInput.files]);
+    });
+
+    function handleFiles(files) {
+      // PDF parsing will be wired here
+      console.log('Files received:', files.map(f => f.name));
+    }
+  </script>
+
+</body>
+</html>
