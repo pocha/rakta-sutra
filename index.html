@@ -40,7 +40,6 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 72px 24px 64px;
       text-align: center;
       background:
         radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180, 20, 30, 0.25) 0%, transparent 65%),
@@ -308,6 +307,85 @@
       font-style: italic;
     }
 
+    /* ── Status message ─────────────────────────────────── */
+    .status-msg {
+      font-size: 0.85rem;
+      margin-top: 16px;
+      min-height: 1.2em;
+      white-space: pre-line;
+    }
+    .status-info    { color: var(--muted-lt); }
+    .status-success { color: #22c55e; }
+    .status-error   { color: var(--red); }
+
+    /* ── Results section ─────────────────────────────────── */
+    .results {
+      padding: 24px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .results.hidden { display: none; }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .results-header h2 { font-size: 1.5rem; font-weight: 700; }
+
+    .btn-download {
+      background: var(--red);
+      color: #fff;
+      border: none;
+      padding: 11px 24px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-download:hover { background: var(--red-dim); }
+
+    /* ── Results table ───────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .results-table th {
+      background: var(--card);
+      color: var(--muted-lt);
+      font-weight: 600;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 11px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    .results-table td {
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .results-table tbody tr:last-child td { border-bottom: none; }
+    .results-table tbody tr:hover { background: var(--card); }
+    .results-table td.editable:focus {
+      outline: 2px solid var(--red);
+      border-radius: 3px;
+      background: rgba(230,57,70,0.05);
+    }
+    .results-table td.missing { color: var(--muted); }
+    .no-results { color: var(--muted); text-align: center; padding: 40px; }
+
     /* ── Footer ──────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
@@ -362,6 +440,16 @@
       <span class="green-dot"></span>
       All extraction happens in your browser · Zero data ever leaves your device
     </div>
+    <p class="status-msg status-info" id="statusMsg"></p>
+  </section>
+
+  <!-- ── Results ── -->
+  <section class="results hidden" id="resultsSection">
+    <div class="results-header">
+      <h2>Extracted Results</h2>
+      <button class="btn-download" id="downloadBtn">⬇ Download CSV</button>
+    </div>
+    <div class="table-wrap" id="tableWrap"></div>
   </section>
 
   <div class="section-divider"></div>
@@ -419,43 +507,8 @@
     Track Blood · Personal blood health tracking · Your data stays on your device, always
   </footer>
 
-  <script>
-    const dropzone  = document.getElementById('dropzone');
-    const fileInput = document.getElementById('fileInput');
-    const browseBtn = document.getElementById('browseBtn');
-
-    browseBtn.addEventListener('click', e => {
-      e.stopPropagation();
-      fileInput.click();
-    });
-
-    dropzone.addEventListener('click', () => fileInput.click());
-
-    dropzone.addEventListener('dragover', e => {
-      e.preventDefault();
-      dropzone.classList.add('dragover');
-    });
-
-    dropzone.addEventListener('dragleave', e => {
-      if (!dropzone.contains(e.relatedTarget)) dropzone.classList.remove('dragover');
-    });
-
-    dropzone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropzone.classList.remove('dragover');
-      const files = [...e.dataTransfer.files].filter(f => f.type === 'application/pdf');
-      if (files.length) handleFiles(files);
-    });
-
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files.length) handleFiles([...fileInput.files]);
-    });
-
-    function handleFiles(files) {
-      // PDF parsing will be wired here
-      console.log('Files received:', files.map(f => f.name));
-    }
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="app.js"></script>
 
 </body>
 </html>
