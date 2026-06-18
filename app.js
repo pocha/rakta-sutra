@@ -39,11 +39,6 @@ const MARKERS = {
   'LDL Cholesterol':       ['LDL CHOLESTEROL - DIRECT', 'LDL CHOLESTEROL', 'LOW - DENSITY LIPOPROTEIN LDL', 'LOW - DENSITY LIPOPROTEIN', 'LOW DENSITY LIPOPROTEIN', 'CHOLESTEROL - LDL', 'LDL'],
   'VLDL Cholesterol':      ['VLDL CHOLESTEROL', 'VERY LOW DENSITY LIPOPROTEIN', 'CHOLESTEROL- VLDL', 'CHOLESTEROL - VLDL', 'VLDL'],
   'Triglycerides':         ['TRIGLYCERIDES', 'TRIGLYCERIDE', 'TG'],
-  'TC/HDL Ratio':          ['CHOLESTEROL/HIGH DENSITY LIPOPROTEIN (HDL) RATIO', 'CHOLESTEROL/HDL RATIO', 'CHOLESTEROL : HDL CHOLESTEROL', 'CHOLESTEROL:HDL CHOLESTEROL', 'TC / HDL CHOLESTEROL RATIO', 'TC / HDL RATIO', 'TC/ HDL CHOLESTEROL RATIO', 'TC/HDL CHOLESTEROL RATIO', 'LIPOPROTEIN HDL RATIO', 'TC/HDL RATIO', 'TC/HDL', 'HDL RATIO'],
-  'LDL/HDL Ratio':         ['LDL : HDL CHOLESTEROL', 'LDL:HDL CHOLESTEROL', 'LDL / HDL RATIO', 'LDL/HDL RATIO', 'LDL/HDL'],
-  'HDL/LDL Ratio':         ['HDL / LDL RATIO', 'HDL/LDL RATIO', 'HDL/LDL'],
-  'TG/HDL Ratio':          ['TRIG / HDL RATIO', 'TG/HDL RATIO', 'TG/HDL'],
-  'Non-HDL Cholesterol':   ['NON - HDL CHOLESTEROL', 'NON-HDL CHOLESTEROL', 'NON HDL CHOLESTEROL', 'NON-HDL'],
 
   // LFT
   'AST (Aspartate Aminotransferase)': ['ASPARTATE AMINOTRANSFERASE (SGOT)', 'ASPARTATE AMINOTRANSFERASE(AST/SGOT)', 'ASPARTATE AMINOTRANSFERASE', 'AST/SGOT', 'SGOT', 'AST'],
@@ -137,9 +132,7 @@ const VALUE_LIMITS = {
   'Monocytes Absolute':[10,3000],'Eosinophils Absolute':[0,2000],'Basophils Absolute':[0,500],
   'Mean Platelet Volume':[3,20],'Neutrophil Lymphocyte Ratio':[0.1,30],
   'Total Cholesterol':[50,600],'HDL Cholesterol':[10,150],'LDL Cholesterol':[10,500],
-  'VLDL Cholesterol':[2,150],'Triglycerides':[20,3000],
-  'TC/HDL Ratio':[1,20],'LDL/HDL Ratio':[0.3,15],'HDL/LDL Ratio':[0.05,5],'TG/HDL Ratio':[0.1,30],
-  'Non-HDL Cholesterol':[10,500],
+  'VLDL Cholesterol':[5,100],'Triglycerides':[20,3000],
   'AST (Aspartate Aminotransferase)':[3,5000],'ALT (Alanine Transaminase)':[2,5000],
   'AST/ALT Ratio':[0.1,15],'Alkaline Phosphatase':[10,3000],
   'Gamma-Glutamyl Transferase':[2,3000],
@@ -203,9 +196,7 @@ const REF_RANGES = {
   'Platelet Large Cell Ratio':'19.7-42.4 %',
   'Total Cholesterol':'< 200 mg/dL','HDL Cholesterol':'40-60 mg/dL',
   'LDL Cholesterol':'< 100 mg/dL','VLDL Cholesterol':'5-40 mg/dL',
-  'Triglycerides':'< 150 mg/dL','TC/HDL Ratio':'3-5',
-  'LDL/HDL Ratio':'1.5-3.5','HDL/LDL Ratio':'> 0.40','TG/HDL Ratio':'< 3.12',
-  'Non-HDL Cholesterol':'< 160 mg/dL',
+  'Triglycerides':'< 150 mg/dL',
   'AST (Aspartate Aminotransferase)':'< 35 U/L','ALT (Alanine Transaminase)':'< 45 U/L',
   'AST/ALT Ratio':'< 2','Alkaline Phosphatase':'45-129 U/L',
   'Gamma-Glutamyl Transferase':'< 55 U/L','Bilirubin Total':'0.3-1.2 mg/dL',
@@ -242,7 +233,7 @@ const REF_RANGES = {
 // ─────────────────────────────────────────────────────────────────────────────
 const MARKER_GROUPS = [
   { label: 'CBC', keys: ['Hemoglobin','Hematocrit','RBC Count','Mean Corpuscular Volume','Mean Corpuscular Hemoglobin','Mean Corpuscular Hemoglobin Concentration','Red Cell Distribution Width-CV','Red Cell Distribution Width-SD','White Blood Cell Count','Neutrophils %','Neutrophils Absolute','Lymphocytes %','Lymphocytes Absolute','Monocytes %','Monocytes Absolute','Eosinophils %','Eosinophils Absolute','Basophils %','Basophils Absolute','Platelet Count','Mean Platelet Volume','Platelet Distribution Width','Plateletcrit','Platelet Large Cell Ratio'] },
-  { label: 'Lipid', keys: ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Triglycerides','TC/HDL Ratio','LDL/HDL Ratio','HDL/LDL Ratio','TG/HDL Ratio','Non-HDL Cholesterol'] },
+  { label: 'Lipid', keys: ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Triglycerides'] },
   { label: 'Liver (LFT)', keys: ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio','Alkaline Phosphatase','Gamma-Glutamyl Transferase','Bilirubin Total','Bilirubin Direct','Bilirubin Indirect','Total Protein','Albumin','Globulin','Albumin/Globulin Ratio'] },
   { label: 'Kidney (KFT)', keys: ['Creatinine','Blood Urea Nitrogen','Urea','Uric Acid','Calcium','Glomerular Filtration Rate (eGFR)','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio'] },
   { label: 'Thyroid', keys: ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total','Free Triiodothyronine','Free Thyroxine'] },
@@ -277,7 +268,7 @@ const KEYWORD_MAP = {
   // CBC descriptor keywords
   'WHITE':        ['White Blood Cell Count'],
   'ABSOLUTE':     ['Neutrophils Absolute','Lymphocytes Absolute','Monocytes Absolute','Eosinophils Absolute','Basophils Absolute'],
-  'RATIO':        ['Neutrophil Lymphocyte Ratio','AST/ALT Ratio','TC/HDL Ratio','LDL/HDL Ratio','HDL/LDL Ratio','TG/HDL Ratio','Albumin/Globulin Ratio','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio','Apolipoprotein B/A1 Ratio','Platelet Large Cell Ratio'],
+  'RATIO':        ['Neutrophil Lymphocyte Ratio','AST/ALT Ratio','Albumin/Globulin Ratio','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio','Apolipoprotein B/A1 Ratio','Platelet Large Cell Ratio'],
   'DISTRIBUTION': ['Red Cell Distribution Width-CV','Red Cell Distribution Width-SD','Platelet Distribution Width'],
   'VOLUME':       ['Mean Corpuscular Volume','Mean Platelet Volume'],
   'CRIT':         ['Hematocrit','Plateletcrit'],
@@ -297,15 +288,21 @@ const KEYWORD_MAP = {
   // Absolute count & platelet detail abbreviations removed — covered by noun keywords above,
   // and 3-char forms (ALC, ANC, AMC, AEC) match as substrings inside unrelated words (CALCULATED, PANCREATIC, etc.)
   // Lipid — chemical nouns
-  'CHOLESTEROL':    ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Non-HDL Cholesterol','TC/HDL Ratio','LDL/HDL Ratio','HDL/LDL Ratio'],
-  'TRIGLYCERIDE':   ['Triglycerides','TG/HDL Ratio'],
+  'CHOLESTEROL':    ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol'],
+  'TRIGLYCERIDE':   ['Triglycerides'],
   'LIPOPROTEIN':    ['HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Non-HDL Cholesterol','Apolipoprotein B','Apolipoprotein A1','Apolipoprotein B/A1 Ratio'],
   'APOLIPOPROTEIN': ['Apolipoprotein B','Apolipoprotein A1','Apolipoprotein B/A1 Ratio'],
   // Lipid abbreviations
-  'HDL':  ['HDL Cholesterol','TC/HDL Ratio','LDL/HDL Ratio','HDL/LDL Ratio','TG/HDL Ratio'],
-  'LDL':  ['LDL Cholesterol','LDL/HDL Ratio','HDL/LDL Ratio'],
-  'VLDL': ['VLDL Cholesterol'],
-  'TG':   ['Triglycerides','TG/HDL Ratio'],  // 2-char exception
+  // LDL is a substring of VLDL, so both get +1 from LDL keyword on any cholesterol line.
+  // Compound keywords break the tie: LDLCHOLESTEROL fires only on LDL lines, VLDLCHOLESTEROL only on VLDL lines.
+  'HDL':            ['HDL Cholesterol'],
+  'LDL':            ['LDL Cholesterol','VLDL Cholesterol'],
+  'LDLCHOLESTEROL':      ['LDL Cholesterol'],
+  'CHOLESTEROLLDL':      ['LDL Cholesterol'],
+  'VLDL':                ['VLDL Cholesterol'],
+  'VLDLCHOLESTEROL':     ['VLDL Cholesterol'],
+  'CHOLESTEROLVLDL':     ['VLDL Cholesterol'],
+  'TG':   ['Triglycerides'],  // 2-char exception
   // LFT — enzyme/molecule nouns
   'BILIRUBIN':        ['Bilirubin Total','Bilirubin Direct','Bilirubin Indirect'],
   'AMINOTRANSFERASE': ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio'],
