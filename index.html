@@ -385,6 +385,28 @@
     }
     .results-table td.missing { color: var(--muted); }
     .no-results { color: var(--muted); text-align: center; padding: 40px; }
+    .group-header td {
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+    }
+    .out-of-range { color: var(--red) !important; background: rgba(230,57,70,0.08); }
+    .btn-share {
+      background: transparent;
+      color: var(--muted-lt);
+      border: 1px solid var(--border);
+      padding: 11px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-share:hover { border-color: var(--red); color: var(--text); }
 
     /* ── Footer ──────────────────────────────────────────── */
     footer {
@@ -447,7 +469,10 @@
   <section class="results hidden" id="resultsSection">
     <div class="results-header">
       <h2>Extracted Results</h2>
-      <button class="btn-download" id="downloadBtn">⬇ Download CSV</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-download" id="downloadBtn">⬇ Download CSV</button>
+        <button class="btn-share" id="shareBtn">↗ Share as PDF</button>
+      </div>
     </div>
     <div class="table-wrap" id="tableWrap"></div>
   </section>
@@ -508,6 +533,8 @@
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="app.js"></script>
 
 </body>
