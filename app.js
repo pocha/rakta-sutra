@@ -305,8 +305,12 @@ const KEYWORD_MAP = {
   'TG':   ['Triglycerides'],  // 2-char exception
   // LFT — enzyme/molecule nouns
   'BILIRUBIN':        ['Bilirubin Total','Bilirubin Direct','Bilirubin Indirect'],
+  'DIRECT':           ['Bilirubin Direct'],
+  'INDIRECT':         ['Bilirubin Indirect'],
   'AMINOTRANSFERASE': ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio'],
   'TRANSAMINASE':     ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio'],
+  'ALANINE':          ['ALT (Alanine Transaminase)'],
+  'ASPARTATE':        ['AST (Aspartate Aminotransferase)'],
   'PHOSPHATASE':      ['Alkaline Phosphatase'],
   'ALBUMIN':          ['Albumin','Albumin/Globulin Ratio'],
   'GLOBULIN':         ['Globulin','Albumin/Globulin Ratio'],
