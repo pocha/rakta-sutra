@@ -140,7 +140,7 @@ const VALUE_LIMITS = {
   'Total Protein':[2,12],'Albumin':[1,8],'Globulin':[0.5,8],'Albumin/Globulin Ratio':[0.1,5],
   'Creatinine':[0.2,20],'Blood Urea Nitrogen':[1,200],'Urea':[3,400],
   'Uric Acid':[1,20],'Calcium':[4,15],'Glomerular Filtration Rate (eGFR)':[1,200],
-  'Blood Urea Nitrogen/Creatinine Ratio':[1,100],'Urea/Creatinine Ratio':[1,200],
+  'Blood Urea Nitrogen/Creatinine Ratio':[1,100],'Urea/Creatinine Ratio':[10,70],
   'Thyroid Stimulating Hormone':[0.001,100],
   'Triiodothyronine (T3) Total':[0.1,10],'Thyroxine (T4) Total':[0.5,30],
   'Free Triiodothyronine':[0.5,20],'Free Thyroxine':[0.1,10],
@@ -323,14 +323,19 @@ const KEYWORD_MAP = {
   'GGT':  ['Gamma-Glutamyl Transferase'],
   'ALP':  ['Alkaline Phosphatase'],
   // KFT — chemical nouns
-  'CREATININE': ['Creatinine','Glomerular Filtration Rate (eGFR)','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio'],
-  'UREA':       ['Urea','Blood Urea Nitrogen','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio'],
+  'CREATININE':       ['Creatinine','Glomerular Filtration Rate (eGFR)'],
+  'CREATININESERUM':  ['Creatinine'],
+  'SERUMCREATININE':  ['Creatinine'],
+  'UREA':             ['Urea','Blood Urea Nitrogen'],
+  'BLOODUREA':        ['Urea','Blood Urea Nitrogen'],
+  'UREANITROGEN':     ['Blood Urea Nitrogen'],
   'URIC':       ['Uric Acid'],
   'URICACID':   ['Uric Acid'],  // compact of "URIC ACID" — catches labs that print full name
   'CALCIUM':    ['Calcium'],
   // KFT abbreviations
   'BUN':  ['Blood Urea Nitrogen','Blood Urea Nitrogen/Creatinine Ratio'],
-  'EGFR': ['Glomerular Filtration Rate (eGFR)'],
+  'EGFR':       ['Glomerular Filtration Rate (eGFR)'],
+  'GLOMERULAR': ['Glomerular Filtration Rate (eGFR)'],
   // Thyroid — chemical nouns
   'THYROID':          ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total','Free Triiodothyronine','Free Thyroxine'],
   'THYROXINE':        ['Thyroxine (T4) Total','Free Thyroxine'],
@@ -423,10 +428,11 @@ function parseDate(text) {
 }
 
 function extractDate(lines) {
-  const priority = lines.filter(l =>
+  const textLines = lines.filter(l => !l.pageBreak && l.text);
+  const priority = textLines.filter(l =>
     /coll|collection|sct|date\s*:/i.test(l.text) && !/released|received|report\s*date/i.test(l.text)
   );
-  for (const line of [...priority, ...lines]) {
+  for (const line of [...priority, ...textLines]) {
     const d = parseDate(line.text);
     if (d) return d;
   }
@@ -471,8 +477,8 @@ function detectColMap(line) {
       if (!colMap[col] && re.test(item.text)) { colMap[col] = item.x; break; }
     }
   }
-  // All three anchor columns must be present
-  if (colMap.test === undefined || colMap.value === undefined || colMap.reference === undefined) return null;
+  // test and value are mandatory; reference is optional (some pages use TEST NAME | TECHNOLOGY | VALUE | UNITS)
+  if (colMap.test === undefined || colMap.value === undefined) return null;
   // test must be the leftmost column (x = 0 or smallest among all detected)
   const allX = Object.values(colMap);
   if (colMap.test !== Math.min(...allX)) return null;
@@ -616,6 +622,7 @@ function extractValueAndRef(lineItems, alias, colMap) {
 function lookAheadValue(allLines, i, canonical, colMap, extracted) {
   for (let j = i + 1; j <= Math.min(i + 2, allLines.length - 1); j++) {
     const next = allLines[j];
+    if (next.pageBreak) break;
     let value = null, ref = null, units = '';
     if (colMap?.value !== undefined) {
       for (const item of next.items) {
@@ -668,6 +675,7 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
 function peekNextValue(allLines, i, colMap) {
   for (let j = i + 1; j <= Math.min(i + 2, allLines.length - 1); j++) {
     const next = allLines[j];
+    if (next.pageBreak) break;
     let value = null, ref = null;
     if (colMap?.value !== undefined) {
       for (const item of next.items) {
@@ -726,6 +734,7 @@ async function parsePDF(file) {
     const page    = await pdf.getPage(p);
     const content = await page.getTextContent();
     if (content.items.length < 8) { scanned++; continue; }
+    allLines.push({ pageBreak: true });
     allLines.push(...groupIntoLines(content.items));
   }
 
@@ -741,6 +750,7 @@ async function parsePDF(file) {
 
   for (let i = 0; i < allLines.length; i++) {
     const line = allLines[i];
+    if (line.pageBreak) { colMap = null; continue; }
     if (shouldSkip(line.text)) continue;
     const newMap = detectColMap(line);
     if (newMap) {
