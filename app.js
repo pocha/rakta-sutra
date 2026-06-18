@@ -130,7 +130,7 @@ const VALUE_LIMITS = {
   'Hemoglobin':[3,25],'Hematocrit':[10,70],'RBC Count':[1,8],
   'Mean Corpuscular Volume':[50,130],'Mean Corpuscular Hemoglobin':[10,50],
   'Mean Corpuscular Hemoglobin Concentration':[20,45],
-  'White Blood Cell Count':[500,100000],'Platelet Count':[10,2000],
+  'White Blood Cell Count':[500,100000],'Platelet Count':[10000,2000000],
   'Neutrophils %':[1,100],'Lymphocytes %':[1,100],
   'Monocytes %':[0,30],'Eosinophils %':[0,60],'Basophils %':[0,10],
   'Neutrophils Absolute':[100,20000],'Lymphocytes Absolute':[50,10000],
@@ -178,6 +178,12 @@ function unitScale(units) {
   return 1;
 }
 
+function scaleRef(ref, scale) {
+  if (!ref || scale === 1) return ref;
+  // Scale a "lo-hi" range string: "150-410" → "150000-410000"
+  return ref.replace(/(\d+\.?\d*)/g, n => String(parseFloat(n) * scale));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Reference ranges (hardcoded fallback)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -192,7 +198,7 @@ const REF_RANGES = {
   'Monocytes %':'2-10 %','Monocytes Absolute':'0.2-1.0 x10^3/uL',
   'Eosinophils %':'1-6 %','Eosinophils Absolute':'0.02-0.5 x10^3/uL',
   'Basophils %':'0-2 %','Basophils Absolute':'0.02-0.1 x10^3/uL',
-  'Platelet Count':'150-410 x10^3/uL','Mean Platelet Volume':'6.5-12 fL',
+  'Platelet Count':'150000-410000 cells/μL','Mean Platelet Volume':'6.5-12 fL',
   'Platelet Distribution Width':'9.6-15.2 fL','Plateletcrit':'0.19-0.39 %',
   'Platelet Large Cell Ratio':'19.7-42.4 %',
   'Total Cholesterol':'< 200 mg/dL','HDL Cholesterol':'40-60 mg/dL',
@@ -638,8 +644,9 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
         if (NUM_RE.test(t)) { value = parseFloat(t); break; }
       }
     }
-    if (value !== null) value = value * unitScale(units);
-    if (value !== null && inValueRange(canonical, value)) return { value, ref };
+    const laScale = unitScale(units);
+    if (value !== null) value = value * laScale;
+    if (value !== null && inValueRange(canonical, value)) return { value, ref: scaleRef(ref, laScale) };
     // Stop if next line matches an unextracted marker
     const nameItems = colMap?.value !== undefined
       ? next.items.filter(it => it.x < colMap.value - 20)
@@ -755,7 +762,9 @@ async function parsePDF(file) {
 
     // Extract value+ref+units from the current line
     let { value, ref, units } = extractValueAndRef(line.items, '', colMap);
-    if (value !== null) value = value * unitScale(units);
+    const scale = unitScale(units);
+    if (value !== null) value = value * scale;
+    if (scale !== 1) ref = scaleRef(ref, scale);
     let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value);
 
     // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
