@@ -895,8 +895,19 @@ async function shareAsPDF() {
     });
     document.body.classList.remove('capturing');
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, canvas.width / 2, canvas.height / 2);
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    const pageW  = pdf.internal.pageSize.getWidth();   // 210 mm
+    const pageH  = pdf.internal.pageSize.getHeight();  // 297 mm
+    const imgW   = pageW;
+    const imgH   = canvas.height * (pageW / canvas.width);
+    let remaining = imgH;
+    let offset    = 0;
+    while (remaining > 0) {
+      pdf.addImage(imgData, 'JPEG', 0, offset, imgW, imgH);
+      remaining -= pageH;
+      if (remaining > 0) { pdf.addPage(); offset -= pageH; }
+    }
     const blob = pdf.output('blob');
     const file = new File([blob], 'track-blood-report.pdf', { type: 'application/pdf' });
 
