@@ -850,8 +850,17 @@ function setStatus(msg, type = 'info') {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main file handler
 // ─────────────────────────────────────────────────────────────────────────────
+function showFileChips(files) {
+  const area = document.getElementById('labsArea');
+  if (!area) return;
+  area.innerHTML = files.map(f =>
+    `<span class="file-chip" title="${f.name}">${f.name}</span>`
+  ).join('');
+}
+
 async function handleFiles(files) {
   if (!files.length) return;
+  showFileChips(files);
   setStatus(`Processing ${files.length} file${files.length > 1 ? 's' : ''}…`);
   const errors = [];
   for (const file of files) {
@@ -877,12 +886,14 @@ async function handleFiles(files) {
 async function shareAsPDF() {
   setStatus('Generating PDF snapshot…');
   try {
+    document.body.classList.add('capturing');
     const canvas = await html2canvas(document.body, {
       scale: 2, useCORS: true,
-      scrollX: 0, scrollY: -window.scrollY,
+      scrollX: 0, scrollY: 0,
       width: document.body.scrollWidth,
       height: document.body.scrollHeight,
     });
+    document.body.classList.remove('capturing');
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, canvas.width / 2, canvas.height / 2);
@@ -898,6 +909,7 @@ async function shareAsPDF() {
     }
     setStatus('');
   } catch (err) {
+    document.body.classList.remove('capturing');
     setStatus('PDF generation failed: ' + err.message, 'error');
     console.error(err);
   }
