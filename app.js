@@ -308,7 +308,7 @@ const KEYWORD_MAP = {
   'PHOSPHATASE':      ['Alkaline Phosphatase'],
   'ALBUMIN':          ['Albumin','Albumin/Globulin Ratio'],
   'GLOBULIN':         ['Globulin','Albumin/Globulin Ratio'],
-  'PROTEIN':          ['Total Protein','Albumin','Globulin'],
+  'PROTEIN':          ['Total Protein','Albumin','Globulin','High Sensitivity CRP'],
   // LFT abbreviations
   'AST':  ['AST (Aspartate Aminotransferase)','AST/ALT Ratio'],
   'SGOT': ['AST (Aspartate Aminotransferase)','AST/ALT Ratio'],
@@ -378,6 +378,7 @@ const KEYWORD_MAP = {
   'ESR':   ['Erythrocyte Sedimentation Rate'],
   'CRP':   ['High Sensitivity CRP'],
   'HSCRP': ['High Sensitivity CRP'],
+  'HIGHSENSITIVITYCREACTIVEPROTEIN': ['High Sensitivity CRP'],
   'CEA':   ['Carcinoembryonic Antigen'],
   'IGE':   ['Immunoglobulin E'],
   'CA125': ['Cancer Antigen 125'],
