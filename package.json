@@ -1,0 +1,24 @@
+{
+  "name": "raktra-sutra",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pocha/rakta-sutra.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pocha/rakta-sutra/issues"
+  },
+  "homepage": "https://github.com/pocha/rakta-sutra#readme",
+  "dependencies": {
+    "pdfjs-dist": "^3.11.174"
+  }
+}
