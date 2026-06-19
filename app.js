@@ -4,117 +4,6 @@
 const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Marker dictionary — canonical name → aliases (sorted longest-first at startup)
-// ─────────────────────────────────────────────────────────────────────────────
-const MARKERS = {
-  // CBC
-  'Hemoglobin':                              ['HAEMOGLOBIN', 'HEMOGLOBIN', 'HGB', 'HB'],
-  'Hematocrit':                              ['HEMATOCRIT (PCV)', 'HEMATOCRIT', 'HAEMATOCRIT', 'PACKED CELL VOLUME', 'HCT', 'PCV'],
-  'RBC Count':                               ['TOTAL RBC', 'RBC COUNT', 'RED BLOOD CELL COUNT', 'RBC'],
-  'Mean Corpuscular Volume':                 ['MEAN CORPUSCULAR VOLUME (MCV)', 'MEAN CORPUSCULAR VOLUME', 'MCV'],
-  'Mean Corpuscular Hemoglobin':             ['MEAN CORPUSCULAR HEMOGLOBIN (MCH)', 'MEAN CORPUSCULAR HAEMOGLOBIN (MCH)', 'MEAN CORPUSCULAR HEMOGLOBIN', 'MEAN CORPUSCULAR HAEMOGLOBIN', 'MCH'],
-  'Mean Corpuscular Hemoglobin Concentration': ['MEAN CORP.HEMO. CONC (MCHC)', 'MEAN CORPUSCULAR HEMOGLOBIN CONCENTRATION', 'MEAN CORPUSCULAR HAEMOGLOBIN CONCENTRATION', 'MCHC'],
-  'Red Cell Distribution Width-CV':          ['RED CELL DISTRIBUTION WIDTH (RDW - CV)', 'RED CELL DISTRIBUTION WIDTH - CV', 'RDW-CV', 'RDW CV'],
-  'Red Cell Distribution Width-SD':          ['RED CELL DISTRIBUTION WIDTH - SD (RDW-SD)', 'RED CELL DISTRIBUTION WIDTH - SD', 'RDW-SD', 'RDW SD'],
-  'White Blood Cell Count':                  ['TOTAL LEUCOCYTE COUNT (WBC)', 'TOTAL LEUCOCYTE COUNT', 'TOTAL LEUKOCYTE COUNT', 'WHITE BLOOD CELL COUNT', 'TLC', 'WBC'],
-  'Neutrophils %':                           ['NEUTROPHILS PERCENTAGE', 'NEUTROPHILS %', 'NEUTROPHIL PERCENTAGE', 'NEUTROPHILS'],
-  'Neutrophils Absolute':                    ['NEUTROPHILS - ABSOLUTE COUNT', 'ABSOLUTE NEUTROPHIL COUNT', 'NEUTROPHILS ABSOLUTE COUNT', 'NEUTROPHIL ABSOLUTE', 'ANC'],
-  'Lymphocytes %':                           ['LYMPHOCYTES PERCENTAGE', 'LYMPHOCYTES %', 'LYMPHOCYTE PERCENTAGE', 'LYMPHOCYTES'],
-  'Lymphocytes Absolute':                    ['LYMPHOCYTES - ABSOLUTE COUNT', 'ABSOLUTE LYMPHOCYTE COUNT', 'LYMPHOCYTES ABSOLUTE COUNT', 'LYMPHOCYTE ABSOLUTE'],
-  'Monocytes %':                             ['MONOCYTES PERCENTAGE', 'MONOCYTES %', 'MONOCYTE PERCENTAGE', 'MONOCYTES'],
-  'Monocytes Absolute':                      ['MONOCYTES - ABSOLUTE COUNT', 'ABSOLUTE MONOCYTE COUNT', 'MONOCYTES ABSOLUTE COUNT', 'MONOCYTE ABSOLUTE'],
-  'Eosinophils %':                           ['EOSINOPHILS PERCENTAGE', 'EOSINOPHILS %', 'EOSINOPHIL PERCENTAGE', 'EOSINOPHILS'],
-  'Eosinophils Absolute':                    ['EOSINOPHILS - ABSOLUTE COUNT', 'ABSOLUTE EOSINOPHIL COUNT', 'EOSINOPHILS ABSOLUTE COUNT', 'EOSINOPHIL ABSOLUTE'],
-  'Basophils %':                             ['BASOPHILS PERCENTAGE', 'BASOPHILS %', 'BASOPHIL PERCENTAGE', 'BASOPHILS'],
-  'Basophils Absolute':                      ['BASOPHILS - ABSOLUTE COUNT', 'ABSOLUTE BASOPHIL COUNT', 'BASOPHILS ABSOLUTE COUNT', 'BASOPHIL ABSOLUTE'],
-  'Platelet Count':                          ['PLATELET COUNT', 'PLATELETS', 'PLT'],
-  'Mean Platelet Volume':                    ['MEAN PLATELET VOLUME (MPV)', 'MEAN PLATELET VOLUME', 'MPV'],
-  'Platelet Distribution Width':             ['PLATELET DISTRIBUTION WIDTH (PDW)', 'PLATELET DISTRIBUTION WIDTH', 'PDW'],
-  'Plateletcrit':                            ['PLATELETCRIT (PCT)', 'PLATELETCRIT', 'PCT'],
-  'Platelet Large Cell Ratio':               ['PLATELET TO LARGE CELL RATIO (PLCR)', 'PLATELET TO LARGE CELL RATIO', 'PLCR'],
-
-  // Lipid
-  'Total Cholesterol':     ['TOTAL CHOLESTEROL', 'CHOLESTEROL TOTAL', 'CHOLESTEROL, TOTAL', 'CHOLESTEROL - TOTAL', 'CHOLESTEROL'],
-  'HDL Cholesterol':       ['HDL CHOLESTEROL - DIRECT', 'HDL CHOLESTEROL', 'HIGH - DENSITY LIPOPROTEIN HDL', 'HIGH - DENSITY LIPOPROTEIN', 'HIGH DENSITY LIPOPROTEIN', 'CHOLESTEROL - HDL', 'HDL'],
-  'LDL Cholesterol':       ['LDL CHOLESTEROL - DIRECT', 'LDL CHOLESTEROL', 'LOW - DENSITY LIPOPROTEIN LDL', 'LOW - DENSITY LIPOPROTEIN', 'LOW DENSITY LIPOPROTEIN', 'CHOLESTEROL - LDL', 'LDL'],
-  'VLDL Cholesterol':      ['VLDL CHOLESTEROL', 'VERY LOW DENSITY LIPOPROTEIN', 'CHOLESTEROL- VLDL', 'CHOLESTEROL - VLDL', 'VLDL'],
-  'Triglycerides':         ['TRIGLYCERIDES', 'TRIGLYCERIDE', 'TG'],
-
-  // LFT
-  'AST (Aspartate Aminotransferase)': ['ASPARTATE AMINOTRANSFERASE (SGOT)', 'ASPARTATE AMINOTRANSFERASE(AST/SGOT)', 'ASPARTATE AMINOTRANSFERASE', 'AST/SGOT', 'SGOT', 'AST'],
-  'ALT (Alanine Transaminase)':       ['ALANINE TRANSAMINASE (SGPT)', 'ALANINE AMINOTRANSFERASE (ALT/SGPT)', 'ALANINE TRANSAMINASE', 'ALANINE AMINOTRANSFERASE', 'ALT/SGPT', 'SGPT', 'ALT'],
-  'AST/ALT Ratio':                    ['SGOT / SGPT RATIO', 'SGOT/SGPT RATIO', 'AST/ALT RATIO', 'AST/ALT'],
-  'Alkaline Phosphatase':             ['ALKALINE PHOSPHATASE', 'ALP'],
-  'Gamma-Glutamyl Transferase':       ['GAMMA GLUTAMYL TRANSFERASE (GGT)', 'GAMMA GLUTAMYL TRANSFERASE', 'GAMMA GT', 'GGT'],
-  'Bilirubin Total':                  ['BILIRUBIN - TOTAL', 'BILIRUBIN TOTAL', 'TOTAL BILIRUBIN', 'BILIRUBIN, TOTAL', 'BILIRUBIN'],
-  'Bilirubin Direct':                 ['BILIRUBIN -DIRECT', 'BILIRUBIN DIRECT', 'DIRECT BILIRUBIN', 'BILIRUBIN, DIRECT'],
-  'Bilirubin Indirect':               ['BILIRUBIN (INDIRECT)', 'BILIRUBIN INDIRECT', 'INDIRECT BILIRUBIN', 'BILIRUBIN, INDIRECT'],
-  'Total Protein':                    ['PROTEIN - TOTAL', 'TOTAL PROTEIN', 'PROTEIN, TOTAL', 'PROTEIN'],
-  'Albumin':                          ['ALBUMIN - SERUM', 'SERUM ALBUMIN', 'ALBUMIN'],
-  'Globulin':                         ['SERUM GLOBULIN', 'GLOBULIN'],
-  'Albumin/Globulin Ratio':           ['SERUM ALB/GLOBULIN RATIO', 'ALBUMIN GLOBULIN RATIO', 'A/G RATIO'],
-
-  // KFT
-  'Creatinine':                          ['CREATININE - SERUM', 'SERUM CREATININE', 'CREATININE, SERUM', 'CREATININE'],
-  'Blood Urea Nitrogen':                 ['BLOOD UREA NITROGEN (BUN)', 'BLOOD UREA NITROGEN', 'BUN'],
-  'Urea':                                ['UREA (CALCULATED)', 'UREA'],
-  'Uric Acid':                           ['URIC ACID'],
-  'Calcium':                             ['CALCIUM'],
-  'Glomerular Filtration Rate (eGFR)':   ['EST. GLOMERULAR FILTRATION RATE (EGFR)', 'EST. GLOMERULAR FILTRATION RATE', 'ESTIMATED GLOMERULAR FILTRATION RATE', 'EGFR'],
-  'Blood Urea Nitrogen/Creatinine Ratio':['BLOOD UREA NITROGEN (BUN)/CREATININE RATIO', 'BUN / SR.CREATININE RATIO', 'BUN/SR.CREATININE RATIO', 'BUN/CREATININE RATIO'],
-  'Urea/Creatinine Ratio':               ['UREA / SR.CREATININE RATIO', 'UREA/CREATININE RATIO'],
-
-  // Thyroid
-  'Thyroid Stimulating Hormone': ['TSH - ULTRASENSITIVE', 'TSH ULTRASENSITIVE', 'THYROID STIMULATING HORMONE', 'TSH'],
-  'Triiodothyronine (T3) Total': ['T3 - TOTAL', 'T3 TOTAL', 'TOTAL T3', 'TRIIODOTHYRONINE', 'T3'],
-  'Thyroxine (T4) Total':        ['T4 - TOTAL', 'T4 TOTAL', 'TOTAL T4', 'THYROXINE', 'T4'],
-
-  // Vitamins
-  'Vitamin D':  ['25-OH VITAMIN D (TOTAL)', '25-OH VITAMIN D', 'VITAMIN D TOTAL', '25 HYDROXY VITAMIN D', '25-HYDROXYVITAMIN D', 'VITAMIN D', '25(OH)D'],
-  'Vitamin B12':['VITAMIN B-12', 'VITAMIN B12', 'CYANOCOBALAMIN', 'B12'],
-  'Vitamin B9': ['FOLIC ACID | FOLATE | VITAMIN B9', 'FOLIC ACID', 'FOLATE', 'VITAMIN B9'],
-
-  // Blood Sugar
-  'Fasting Glucose':             ['FASTING BLOOD SUGAR(GLUCOSE)', 'FASTING BLOOD SUGAR', 'FASTING BLOOD GLUCOSE', 'FASTING GLUCOSE', 'GLUCOSE, FASTING', 'FBS', 'FBG'],
-  'Glycated Hemoglobin (HbA1c)': ['GLYCATED HEMOGLOBIN', 'GLYCOSYLATED HEMOGLOBIN', 'HEMOGLOBIN A1C', 'HBA1C', 'HB A1C'],
-  'Average Blood Glucose':       ['AVERAGE BLOOD GLUCOSE (ABG)', 'AVERAGE BLOOD GLUCOSE', 'MEAN BLOOD GLUCOSE', 'ABG'],
-
-  // Iron Studies
-  'Serum Iron':                    ['IRON', 'SERUM IRON'],
-  'Total Iron Binding Capacity':   ['TOTAL IRON BINDING CAPACITY (TIBC)', 'TOTAL IRON BINDING CAPACITY', 'TIBC'],
-  'Unsaturated Iron Binding Capacity': ['UNSAT.IRON-BINDING CAPACITY(UIBC)', 'UNSAT.IRON-BINDING CAPACITY', 'UNSATURATED IRON BINDING CAPACITY', 'UIBC'],
-  'Transferrin Saturation':        ['% TRANSFERRIN SATURATION', 'TRANSFERRIN SATURATION', '% SATURATION'],
-  'Ferritin':                      ['SERUM FERRITIN', 'FERRITIN'],
-
-  // Electrolytes
-  'Sodium':    ['SODIUM', 'SERUM SODIUM'],
-  'Potassium': ['POTASSIUM', 'SERUM POTASSIUM'],
-  'Chloride':  ['CHLORIDE', 'SERUM CHLORIDE'],
-  'Magnesium': ['MAGNESIUM (MG)', 'MAGNESIUM', 'MG'],
-  'Phosphorus':['INORGANIC PHOSPHORUS', 'PHOSPHORUS'],
-
-  // Cardiac
-  'High Sensitivity CRP':      ['HIGH SENSITIVITY C-REACTIVE PROTEIN (HSCRP)', 'HIGH SENSITIVITY C-REACTIVE PROTEIN', 'HIGH SENSITIVITY CRP', 'HS-CRP', 'HSCRP'],
-  'Homocysteine':               ['HOMOCYSTEINE (HCY)', 'HOMOCYSTEINE', 'HCY'],
-  'Apolipoprotein B':           ['APOLIPOPROTEIN B (APO B)', 'APOLIPOPROTEIN B', 'APO-B', 'APO B'],
-  'Apolipoprotein A1':          ['APOLIPOPROTEIN A1 (APO A1)', 'APOLIPOPROTEIN A1', 'APO-A1', 'APO A1'],
-  'Apolipoprotein B/A1 Ratio':  ['APOLIPOPROTEIN B/A1 (APO B/A1) RATIO', 'APOLIPOPROTEIN B / A 1', 'APOLIPOPROTEIN B/A 1', 'APO B / A 1 RATIO', 'APO B/A1 RATIO', 'APO B/A 1 RATIO', 'APO B/APO A1'],
-
-  // Tumour Markers
-  'Cancer Antigen 125':       ['CANCER ANTIGEN 125 (CA 125)', 'CA-125', 'CA 125'],
-  'Carbohydrate Antigen 19-9':['CARBOHYDRATE ANTIGEN 19-9 (CA 19-9)', 'CARBOHYDRATE ANTIGEN 19 9 (CA 19 9)', 'CARBOHYDRATE ANTIGEN 199 (CA 199)', 'CARBOHYDRATE ANTIGEN 19 9', 'CA 19-9', 'CA 19 9', 'CA 199'],
-  'Carcinoembryonic Antigen': ['CARCINOEMBRYONIC ANTIGEN (CEA)', 'CARCINOEMBRYONIC ANTIGEN', 'CEA'],
-
-  // Immunology
-  'Immunoglobulin E':  ['IMMUNOGLOBULIN E (IGE)', 'IMMUNOGLOBULIN E', 'TOTAL IGE', 'IGE'],
-  'Rheumatoid Factor': ['RHEUMATOID FACTOR (RF)', 'RHEUMATOID FACTOR', 'RF'],
-
-  // Other
-  'Erythrocyte Sedimentation Rate': ['ERYTHROCYTE SEDIMENTATION RATE (ESR)', 'ERYTHROCYTE SEDIMENTATION RATE', 'ESR'],
-  'Neutrophil Lymphocyte Ratio':    ['NEUTROPHIL LYMPHOCYTE RATIO (NLR)', 'NEUTROPHIL LYMPHOCYTE RATIO', 'NLR'],
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Physiological bounds — values outside these are rejected (clinical notes, name tokens)
 // ─────────────────────────────────────────────────────────────────────────────
 const VALUE_LIMITS = {
@@ -1021,7 +910,7 @@ async function shareAsPDF() {
 // Node.js export — allows test.js to require this file directly
 // ─────────────────────────────────────────────────────────────────────────────
 if (typeof module !== 'undefined') {
-  module.exports = { parsePDF, MARKERS, KEYWORD_MAP, VALUE_LIMITS, matchLine, disambiguate, groupIntoLines, extractValueAndRef, peekNextValue };
+  module.exports = { parsePDF, MARKER_GROUPS, KEYWORD_MAP, VALUE_LIMITS, matchLine, disambiguate, groupIntoLines, extractValueAndRef, peekNextValue };
 }
 
 window.addEventListener('DOMContentLoaded', () => {
