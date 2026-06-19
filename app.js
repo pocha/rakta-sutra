@@ -68,15 +68,11 @@ const MARKERS = {
   'Thyroid Stimulating Hormone': ['TSH - ULTRASENSITIVE', 'TSH ULTRASENSITIVE', 'THYROID STIMULATING HORMONE', 'TSH'],
   'Triiodothyronine (T3) Total': ['T3 - TOTAL', 'T3 TOTAL', 'TOTAL T3', 'TRIIODOTHYRONINE', 'T3'],
   'Thyroxine (T4) Total':        ['T4 - TOTAL', 'T4 TOTAL', 'TOTAL T4', 'THYROXINE', 'T4'],
-  'Free Triiodothyronine':       ['FREE TRIIODOTHYRONINE', 'FREE T3', 'FT3'],
-  'Free Thyroxine':              ['FREE THYROXINE', 'FREE T4', 'FT4'],
 
   // Vitamins
   'Vitamin D':  ['25-OH VITAMIN D (TOTAL)', '25-OH VITAMIN D', 'VITAMIN D TOTAL', '25 HYDROXY VITAMIN D', '25-HYDROXYVITAMIN D', 'VITAMIN D', '25(OH)D'],
-  'Vitamin D2': ['25-HYDROXYVITAMIN D2', '25-OH VITAMIN D2', 'VITAMIN D2'],
-  'Vitamin D3': ['25-HYDROXYVITAMIN D3', '25-OH VITAMIN D3', 'VITAMIN D3'],
   'Vitamin B12':['VITAMIN B-12', 'VITAMIN B12', 'CYANOCOBALAMIN', 'B12'],
-  'Folic Acid': ['FOLIC ACID | FOLATE | VITAMIN B9', 'FOLIC ACID', 'FOLATE', 'VITAMIN B9'],
+  'Vitamin B9': ['FOLIC ACID | FOLATE | VITAMIN B9', 'FOLIC ACID', 'FOLATE', 'VITAMIN B9'],
 
   // Blood Sugar
   'Fasting Glucose':             ['FASTING BLOOD SUGAR(GLUCOSE)', 'FASTING BLOOD SUGAR', 'FASTING BLOOD GLUCOSE', 'FASTING GLUCOSE', 'GLUCOSE, FASTING', 'FBS', 'FBG'],
@@ -143,8 +139,7 @@ const VALUE_LIMITS = {
   'Blood Urea Nitrogen/Creatinine Ratio':[1,100],'Urea/Creatinine Ratio':[10,70],
   'Thyroid Stimulating Hormone':[0.001,100],
   'Triiodothyronine (T3) Total':[0.1,10],'Thyroxine (T4) Total':[0.5,30],
-  'Free Triiodothyronine':[0.5,20],'Free Thyroxine':[0.1,10],
-  'Vitamin D':[1,200],'Vitamin B12':[50,5000],'Folic Acid':[0.5,80],
+  'Vitamin D':[1,200],'Vitamin B12':[50,5000],'Vitamin B9':[0.5,80],
   'Fasting Glucose':[30,700],'Glycated Hemoglobin (HbA1c)':[3,20],'Average Blood Glucose':[40,600],
   'Serum Iron':[5,400],'Total Iron Binding Capacity':[50,800],
   'Unsaturated Iron Binding Capacity':[30,600],'Transferrin Saturation':[1,100],'Ferritin':[1,10000],
@@ -209,9 +204,8 @@ const REF_RANGES = {
   'Blood Urea Nitrogen/Creatinine Ratio':'9-23','Urea/Creatinine Ratio':'< 52',
   'Thyroid Stimulating Hormone':'0.35-4.94 uIU/mL',
   'Triiodothyronine (T3) Total':'0.6-1.81 ng/mL','Thyroxine (T4) Total':'4.5-12.5 ug/dL',
-  'Free Triiodothyronine':'1.4-4.2 pg/mL','Free Thyroxine':'0.8-1.8 ng/dL',
-  'Vitamin D':'30-100 ng/mL','Vitamin D2':'','Vitamin D3':'','Vitamin B12':'211-911 pg/mL',
-  'Folic Acid':'3.96-16.76 ng/mL',
+  'Vitamin D':'30-100 ng/mL','Vitamin B12':'211-911 pg/mL',
+  'Vitamin B9':'3.96-16.76 ng/mL',
   'Fasting Glucose':'70-100 mg/dL','Glycated Hemoglobin (HbA1c)':'< 5.7 %',
   'Average Blood Glucose':'90-120 mg/dL',
   'Serum Iron':'65-175 ug/dL','Total Iron Binding Capacity':'225-535 ug/dL',
@@ -236,8 +230,8 @@ const MARKER_GROUPS = [
   { label: 'Lipid', keys: ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Triglycerides'] },
   { label: 'Liver (LFT)', keys: ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio','Alkaline Phosphatase','Gamma-Glutamyl Transferase','Bilirubin Total','Bilirubin Direct','Bilirubin Indirect','Total Protein','Albumin','Globulin','Albumin/Globulin Ratio'] },
   { label: 'Kidney (KFT)', keys: ['Creatinine','Blood Urea Nitrogen','Urea','Uric Acid','Calcium','Glomerular Filtration Rate (eGFR)','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio'] },
-  { label: 'Thyroid', keys: ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total','Free Triiodothyronine','Free Thyroxine'] },
-  { label: 'Vitamins', keys: ['Vitamin D','Vitamin D2','Vitamin D3','Vitamin B12','Folic Acid'] },
+  { label: 'Thyroid', keys: ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total'] },
+  { label: 'Vitamins', keys: ['Vitamin D','Vitamin B12','Vitamin B9'] },
   { label: 'Blood Sugar', keys: ['Fasting Glucose','Glycated Hemoglobin (HbA1c)','Average Blood Glucose'] },
   { label: 'Iron Studies', keys: ['Serum Iron','Total Iron Binding Capacity','Unsaturated Iron Binding Capacity','Transferrin Saturation','Ferritin'] },
   { label: 'Electrolytes', keys: ['Sodium','Potassium','Chloride','Magnesium','Phosphorus'] },
@@ -337,25 +331,22 @@ const KEYWORD_MAP = {
   'EGFR':       ['Glomerular Filtration Rate (eGFR)'],
   'GLOMERULAR': ['Glomerular Filtration Rate (eGFR)'],
   // Thyroid — chemical nouns
-  'THYROID':          ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total','Free Triiodothyronine','Free Thyroxine'],
-  'THYROXINE':        ['Thyroxine (T4) Total','Free Thyroxine'],
-  'TRIIODOTHYRONINE': ['Triiodothyronine (T3) Total','Free Triiodothyronine'],
+  'THYROID':          ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total'],
+  'THYROXINE':        ['Thyroxine (T4) Total'],
+  'TRIIODOTHYRONINE': ['Triiodothyronine (T3) Total'],
   // Thyroid abbreviations
   'TSH': ['Thyroid Stimulating Hormone'],
-  'FT3': ['Free Triiodothyronine'],
-  'FT4': ['Free Thyroxine'],
   'T3':  ['Triiodothyronine (T3) Total'],  // 2-char exception
   'T4':  ['Thyroxine (T4) Total'],         // 2-char exception
   // Vitamins
-  'VITAMIN':    ['Vitamin D','Vitamin D2','Vitamin D3','Vitamin B12','Folic Acid'],
-  'VITAMIND3':  ['Vitamin D3'],   // before VITAMIND — longer wins
-  'VITAMIND2':  ['Vitamin D2'],   // before VITAMIND — longer wins
-  'VITAMIND':   ['Vitamin D','Vitamin D2','Vitamin D3'],
+  'VITAMIN':    ['Vitamin D','Vitamin B12','Vitamin B9'],
+  'VITAMIND':   ['Vitamin D'],
   'VITAMINB12': ['Vitamin B12'],
   'CYANOCOBALAMIN': ['Vitamin B12'],
-  'FOLIC':      ['Folic Acid'],
-  'FOLICACID':  ['Folic Acid'],
-  'FOLATE':     ['Folic Acid'],
+  'VITAMINB9':  ['Vitamin B9'],
+  'FOLIC':      ['Vitamin B9'],
+  'FOLICACID':  ['Vitamin B9'],
+  'FOLATE':     ['Vitamin B9'],
   // Blood Sugar
   'GLUCOSE': ['Fasting Glucose','Average Blood Glucose'],
   'HBA1C':   ['Glycated Hemoglobin (HbA1c)'],  // "HbA 1 C", "HB A1C" all compact to HBA1C
@@ -363,6 +354,7 @@ const KEYWORD_MAP = {
   'IRON':        ['Serum Iron','Total Iron Binding Capacity','Unsaturated Iron Binding Capacity','Transferrin Saturation'],
   'FERRITIN':    ['Ferritin'],
   'TRANSFERRIN': ['Total Iron Binding Capacity','Transferrin Saturation'],
+  'SATURATION':  ['Transferrin Saturation'],
   // Iron abbreviations
   'TIBC': ['Total Iron Binding Capacity'],
   'UIBC': ['Unsaturated Iron Binding Capacity'],
@@ -508,9 +500,8 @@ function matchLine(lineText) {
   if (!entries.length) return null;
   const maxScore = Math.max(...entries.map(([, s]) => s));
   const winners = entries.filter(([, s]) => s === maxScore).map(([c]) => c);
-  const allCandidates = entries.map(([c]) => c);
-  if (winners.length === 1) return { canonical: winners[0], candidates: allCandidates };
-  return { canonical: null, candidates: allCandidates };
+  if (winners.length === 1) return { canonical: winners[0], candidates: winners };
+  return { canonical: null, candidates: winners };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -580,9 +571,10 @@ function extractValueAndRef(lineItems, alias, colMap) {
   let value = null, ref = null, units = '';
 
   if (colMap && (colMap.value !== undefined || colMap.reference !== undefined)) {
+    const valCutoff = colMap.value !== undefined ? colMap.value - 20 : 0;
     for (const item of after) {
       const t = item.text.trim();
-      if (value === null && colMap.value !== undefined && Math.abs(item.x - colMap.value) < 70) {
+      if (value === null && colMap.value !== undefined && item.x >= valCutoff && Math.abs(item.x - colMap.value) < 70) {
         const n = parseFloat(t.replace(/,/g, ''));
         if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
       }
@@ -625,9 +617,10 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
     if (next.pageBreak) break;
     let value = null, ref = null, units = '';
     if (colMap?.value !== undefined) {
+      const laValCutoff = colMap.value - 20;
       for (const item of next.items) {
         const t = item.text.trim();
-        if (value === null && Math.abs(item.x - colMap.value) < 70) {
+        if (value === null && item.x >= laValCutoff && Math.abs(item.x - colMap.value) < 70) {
           const n = parseFloat(t.replace(/,/g, ''));
           if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
         }
@@ -678,9 +671,10 @@ function peekNextValue(allLines, i, colMap) {
     if (next.pageBreak) break;
     let value = null, ref = null;
     if (colMap?.value !== undefined) {
+      const pkValCutoff = colMap.value - 20;
       for (const item of next.items) {
         const t = item.text.trim();
-        if (value === null && Math.abs(item.x - colMap.value) < 70) {
+        if (value === null && item.x >= pkValCutoff && Math.abs(item.x - colMap.value) < 70) {
           const n = parseFloat(t.replace(/,/g, ''));
           if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
         }
@@ -703,6 +697,12 @@ function peekNextValue(allLines, i, colMap) {
       }
     }
     if (value !== null) return { value, ref };
+    // Stop if this line is a marker name — don't skip over it to grab its value
+    const pkNameItems = colMap?.value !== undefined
+      ? next.items.filter(it => it.x < colMap.value - 20)
+      : next.items;
+    const pkm = matchLine(pkNameItems.map(it => it.text).join(' '));
+    if (pkm) break;
   }
   return { value: null, ref: null };
 }
