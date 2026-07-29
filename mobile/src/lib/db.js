@@ -70,22 +70,32 @@ const SCHEMA = `
 
 export async function initDb() {
   if (db) return db;
+  console.log('[initDb] platform:', Capacitor.getPlatform());
 
   if (Capacitor.getPlatform() === 'web') {
-    // jeep-sqlite web component backs SQLite in the browser during `vite dev`.
-    await import('jeep-sqlite/dist/components/jeep-sqlite');
+    console.log('[initDb] importing jeep-sqlite…');
+    const { defineCustomElement } = await import('jeep-sqlite/dist/components/jeep-sqlite');
+    defineCustomElement();
+    console.log('[initDb] jeep-sqlite imported, creating element…');
     const el = document.createElement('jeep-sqlite');
     document.body.appendChild(el);
+    console.log('[initDb] waiting for customElements.whenDefined…');
     await customElements.whenDefined('jeep-sqlite');
+    console.log('[initDb] element defined, calling initWebStore…');
     await sqlite.initWebStore();
+    console.log('[initDb] initWebStore done.');
   }
 
+  console.log('[initDb] checking isConnection…');
   const isConn = (await sqlite.isConnection(DB_NAME, false)).result;
+  console.log('[initDb] isConnection:', isConn, '— opening connection…');
   db = isConn
     ? await sqlite.retrieveConnection(DB_NAME, false)
     : await sqlite.createConnection(DB_NAME, false, 'no-encryption', 1, false);
 
+  console.log('[initDb] db.open()…');
   await db.open();
+  console.log('[initDb] db.execute(SCHEMA)…');
   await db.execute(SCHEMA);
 
   const { values } = await db.query('SELECT COUNT(*) as n FROM profiles');
@@ -94,6 +104,7 @@ export async function initDb() {
   }
 
   if (Capacitor.getPlatform() === 'web') await sqlite.saveToStore(DB_NAME);
+  console.log('[initDb] done.');
   return db;
 }
 

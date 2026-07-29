@@ -33,6 +33,17 @@ Opens at `http://localhost:5173`. SQLite runs via an in-browser WASM shim
 push-style local notifications won't work in this mode, only on a real device
 or emulator.
 
+This shim needs `public/sql-wasm.wasm` to exist (already committed) — it's
+copied from `node_modules/sql.js/dist/sql-wasm.wasm`. If it's ever missing
+(e.g. after a clean `node_modules` wipe before `sql.js` is installed), the
+page loads a blank white screen with no console error, because the shim's
+`fetch` 404s silently and the app's `initDb()` promise never resolves. If
+that happens, re-run:
+
+```bash
+mkdir -p public && cp node_modules/sql.js/dist/sql-wasm.wasm public/
+```
+
 ## Run on Android
 
 ```bash

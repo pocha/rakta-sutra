@@ -29,6 +29,7 @@
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "pdfjs-dist": "^6.2.108",
+    "sql.js": "1.11.0",
     "svelte": "^5.56.8"
   },
   "devDependencies": {
