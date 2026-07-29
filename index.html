@@ -424,25 +424,39 @@
     }
 
     /* ── Hero top (logo + title) ──────────────────────────── */
-    .hero-top {
+    .hero-row {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 22px;
+      gap: 48px;
+      max-width: 980px;
+      width: 100%;
+      margin: 0 auto;
+      text-align: left;
     }
-    .hero-logo {
-      width: 72px;
-      height: auto;
+    .hero-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       flex-shrink: 0;
+      gap: 10px;
     }
-    .hero-top h1 { text-align: left; margin-bottom: 0; }
+    .hero-logo { width: 100px; height: auto; }
+    .hero-brand-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .hero-content { flex: 1; min-width: 0; }
+    .hero-content h1 { text-align: left; }
 
     .hero-subtitle {
       color: var(--muted-lt);
       font-size: 1.05rem;
       line-height: 1.6;
       max-width: 480px;
-      margin: 22px auto 32px;
+      margin: 18px 0 26px;
     }
 
     .store-badges {
@@ -450,7 +464,7 @@
       flex-direction: row;
       flex-wrap: wrap;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 14px;
     }
     .store-badge-img {
@@ -471,9 +485,11 @@
     }
 
     /* ── Responsive ──────────────────────────────────────── */
-    @media (max-width: 500px) {
-      .hero-top { flex-direction: column; gap: 14px; }
-      .hero-top h1 { text-align: center; }
+    @media (max-width: 700px) {
+      .hero-row { flex-direction: column; text-align: center; gap: 28px; }
+      .hero-content h1 { text-align: center; }
+      .hero-subtitle { margin-left: auto; margin-right: auto; }
+      .store-badges { justify-content: center; }
     }
     @media (max-width: 600px) {
       header { padding: 16px 20px; }
@@ -493,23 +509,29 @@
 
   <!-- ── Hero ── -->
   <section class="hero">
-    <div class="hero-top">
-      <img class="hero-logo" src="logo-icon.png" alt="Track Blood logo">
-      <h1>Track your blood<br>parameters over time</h1>
-    </div>
+    <div class="hero-row">
+      <div class="hero-brand">
+        <img class="hero-logo" src="logo-icon.png" alt="Track Blood logo">
+        <span class="hero-brand-name">Track Blood</span>
+      </div>
 
-    <p class="hero-subtitle">
-      Keep all your blood reports at one place, journal health related
-      updates &amp; set reminders.
-    </p>
+      <div class="hero-content">
+        <h1>Track your blood<br>parameters over time</h1>
 
-    <div class="store-badges">
-      <a href="https://testflight.apple.com/join/REPLACE_ME" target="_blank" rel="noopener">
-        <img class="store-badge-img" src="download-in-app-store.webp" alt="Download on the App Store">
-      </a>
-      <a id="android-download-btn" href="releases/latest.apk?v=1.0.0" download="track-blood.apk">
-        <img class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
-      </a>
+        <p class="hero-subtitle">
+          Keep all your blood reports at one place, journal health related
+          updates &amp; set reminders.
+        </p>
+
+        <div class="store-badges">
+          <a href="https://testflight.apple.com/join/REPLACE_ME" target="_blank" rel="noopener">
+            <img class="store-badge-img" src="download-in-app-store.webp" alt="Download on the App Store">
+          </a>
+          <a id="android-download-btn" href="releases/latest.apk?v=1.0.0" download="track-blood.apk">
+            <img class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
+          </a>
+        </div>
+      </div>
     </div>
   </section>
 
