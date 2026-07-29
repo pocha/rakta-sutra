@@ -440,6 +440,63 @@
       background: var(--surface);
     }
 
+    /* ── Get the app ─────────────────────────────────────── */
+    .get-app {
+      max-width: 780px;
+      margin: 0 auto 96px;
+      padding: 0 24px;
+    }
+    .get-app-inner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--red);
+      border-radius: 16px;
+      padding: 44px 40px;
+      text-align: center;
+    }
+    .get-app-inner h2 {
+      font-size: clamp(1.6rem, 3.6vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 6px 0 10px;
+    }
+    .get-app-sub {
+      color: var(--muted-lt);
+      font-size: 0.92rem;
+      max-width: 520px;
+      margin: 0 auto 28px;
+    }
+    .app-buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .app-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 20px;
+      text-decoration: none;
+      color: var(--text);
+      transition: border-color 0.15s ease, transform 0.1s ease;
+    }
+    .app-btn:hover { border-color: var(--red); }
+    .app-btn:active { transform: scale(0.98); }
+    .app-btn-icon { font-size: 1.4rem; }
+    .app-btn-text { display: flex; flex-direction: column; align-items: flex-start; }
+    .app-btn-small {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .app-btn-big { font-size: 0.95rem; font-weight: 600; }
+    .app-note { margin-top: 22px; font-size: 0.8rem; color: var(--muted); }
+
     /* ── Responsive ──────────────────────────────────────── */
     @media (max-width: 600px) {
       header { padding: 16px 20px; }
@@ -448,6 +505,8 @@
       .features { padding: 72px 16px 48px; }
       .privacy-callout { padding: 0 16px; }
       .privacy-callout-inner { padding: 32px 24px; }
+      .get-app { padding: 0 16px; }
+      .get-app-inner { padding: 32px 24px; }
       .section-divider { margin: 0 16px; }
       footer { padding: 24px 20px; }
     }
@@ -548,6 +607,39 @@
       </span>
     </div>
   </div>
+
+  <!-- ── Get the App ── -->
+  <section class="get-app">
+    <div class="get-app-inner">
+      <p class="section-label">On the go</p>
+      <h2>Get the mobile app</h2>
+      <p class="get-app-sub">
+        Same private, on-device extraction — plus save your reports, add journal notes,
+        and set reminders, all stored locally on your phone.
+      </p>
+      <div class="app-buttons">
+        <!-- TODO: replace with the real public TestFlight link once the new App Store Connect app exists -->
+        <a class="app-btn" href="https://testflight.apple.com/join/REPLACE_ME" target="_blank" rel="noopener">
+          <span class="app-btn-icon"></span>
+          <span class="app-btn-text">
+            <span class="app-btn-small">iOS</span>
+            <span class="app-btn-big">Join the TestFlight beta</span>
+          </span>
+        </a>
+        <a class="app-btn" id="android-download-btn" href="releases/latest.apk?v=1.0.0" download="track-blood.apk">
+          <span class="app-btn-icon">🤖</span>
+          <span class="app-btn-text">
+            <span class="app-btn-small">Android</span>
+            <span class="app-btn-big">Download APK</span>
+          </span>
+        </a>
+      </div>
+      <p class="app-note">
+        Android installs directly from the APK (not yet on Google Play) — you may need to allow
+        "install from unknown sources." iOS requires the free TestFlight app from Apple.
+      </p>
+    </div>
+  </section>
 
   <!-- ── Footer ── -->
   <footer>

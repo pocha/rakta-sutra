@@ -74,6 +74,60 @@ The first time, Xcode may need CocoaPods installed for the project:
 cd ios/App && pod install && cd ../..
 ```
 
+## Releasing (APK + TestFlight)
+
+`./deploy.sh` builds a signed Android release APK and an iOS archive/IPA, and
+(optionally) uploads the IPA straight to App Store Connect for TestFlight.
+There's no Play Store / App Store listing involved — Android installs
+directly from the APK, iOS goes through TestFlight. This matches the release
+flow used by the `agoriya` project (see `../agoriya/deploy.sh`), reusing the
+same App Store Connect API key convention.
+
+**One-time setup:**
+
+1. **Android signing key** (not committed):
+   ```bash
+   keytool -genkeypair -v -keystore ~/track-blood-release.keystore \
+     -alias track-blood -keyalg RSA -keysize 2048 -validity 10000
+   ```
+   Then create `android/keystore.properties` (gitignored):
+   ```
+   storeFile=/absolute/path/to/track-blood-release.keystore
+   storePassword=your-store-password
+   keyAlias=track-blood
+   keyPassword=your-key-password
+   ```
+2. **App Store Connect API key** — reuse an existing one from your Apple
+   Developer account if you have it (these keys aren't per-app), but you'll
+   need a **new app entry** in App Store Connect for this bundle ID
+   (`org.trackblood.app`) before you can upload to it. Copy `.env.example` to
+   `.env` and fill in your key details.
+3. Open `ios/App/App.xcworkspace` in Xcode once to set your signing Team —
+   `xcodebuild` needs that configured before it can archive.
+
+**Usage:**
+
+```bash
+./deploy.sh                  # build Android APK + iOS IPA, no upload
+./deploy.sh --android-only    # just the APK
+./deploy.sh --ios-only        # just the IPA
+source .env && ./deploy.sh --upload   # also upload the IPA to TestFlight
+```
+
+The APK is copied to `../releases/latest.apk` (and a versioned copy) and, by
+default, committed + pushed so GitHub Pages serves the new download link from
+the root site's "Get the app" section. Pass `--no-commit` to skip that.
+`--force` rebuilds the same `package.json` version again (normally the script
+refuses to, as a reminder to bump it first).
+
+**Versioning:** `package.json`'s `"version"` (plain semver, e.g. `1.2.3`) is
+the single source of truth — bump it before each deploy. It becomes Android's
+`versionName` and iOS's marketing version directly. Android's `versionCode`
+and iOS's build number both need a plain increasing *integer* instead, so
+`deploy.sh` derives one from the same semver (`1.2.3` → `1002003`, i.e.
+`major*1_000_000 + minor*1_000 + patch`) rather than tracking it separately —
+nothing to keep in sync by hand, as long as the version always goes up.
+
 ## Regenerating the app icon
 
 The source icon lives at `resources/icon.png` (a 1024×1024 crop of the brand

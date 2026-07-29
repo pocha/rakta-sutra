@@ -1,6 +1,11 @@
 dist/
+dist-releases/
 www/
 .DS_Store
+.env
+
+# Release signing key config — see deploy.sh / .env.example
+android/keystore.properties
 
 # Android build output (native project itself is committed)
 android/.gradle/
