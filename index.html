@@ -49,7 +49,6 @@
       margin-bottom: 20px;
       background: linear-gradient(160deg, #ffffff 30%, #f0b8be 100%);
       -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
@@ -430,7 +429,6 @@
       align-items: center;
       gap: 48px;
       max-width: 1080px;
-      width: 100%;
       margin: 0 auto;
       text-align: left;
     }
@@ -440,13 +438,14 @@
       align-items: center;
       flex-shrink: 0;
       gap: 10px;
+      margin-left: 50px;
     }
-    .hero-logo { width: 100px; height: auto; }
+    .hero-logo { margin-top: -150px; height: auto; }
     .hero-brand-name {
       font-size: 1.15rem;
       font-weight: 800;
       letter-spacing: -0.01em;
-      color: var(--text);
+      color: var(--red);
       white-space: nowrap;
     }
     .hero-content { flex: 1; min-width: 0; }
@@ -469,7 +468,7 @@
       gap: 14px;
     }
     .store-badge-img {
-      width: 100px;
+      width: 250px;
       height: auto;
       border-radius: 10px;
       transition: transform 0.1s ease;
@@ -513,7 +512,7 @@
     <div class="hero-row">
       <div class="hero-brand">
         <img class="hero-logo" src="logo-icon.png" alt="Track Blood logo">
-        <span class="hero-brand-name">Track Blood</span>
+        <h1 class="hero-brand-name">Track Blood</h1>
       </div>
 
       <div class="hero-content">
@@ -529,7 +528,7 @@
             <img class="store-badge-img" src="download-in-app-store.webp" alt="Download on the App Store">
           </a>
           <a id="android-download-btn" href="releases/latest.apk?v=1.0.0" download="track-blood.apk">
-            <img class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
+            <img style="margin-top: -20px" class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
           </a>
         </div>
       </div>
