@@ -1,0 +1,17 @@
+{
+  "appId": "org.trackblood.app",
+  "appName": "Track Blood",
+  "webDir": "dist",
+  "backgroundColor": "#090909",
+  "plugins": {
+    "CapacitorSQLite": {
+      "iosDatabaseLocation": "Library/CapacitorDatabase",
+      "iosIsEncryption": true,
+      "androidIsEncryption": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_icon",
+      "iconColor": "#e63946"
+    }
+  }
+}

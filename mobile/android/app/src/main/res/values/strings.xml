@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Track Blood</string>
+    <string name="title_activity_main">Track Blood</string>
+    <string name="package_name">org.trackblood.app</string>
+    <string name="custom_url_scheme">org.trackblood.app</string>
+</resources>

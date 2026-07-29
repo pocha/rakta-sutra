@@ -1,0 +1,15 @@
+dist/
+www/
+.DS_Store
+
+# Android build output (native project itself is committed)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+
+# iOS build output / CocoaPods (native project itself is committed)
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
