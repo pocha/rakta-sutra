@@ -100,7 +100,7 @@ export async function initDb() {
 
   const { values } = await db.query('SELECT COUNT(*) as n FROM profiles');
   if (values[0].n === 0) {
-    await db.run('INSERT INTO profiles (name) VALUES (?)', ['Me']);
+    await db.run('INSERT INTO profiles (name) VALUES (?)', ['You']);
   }
 
   if (Capacitor.getPlatform() === 'web') await sqlite.saveToStore(DB_NAME);

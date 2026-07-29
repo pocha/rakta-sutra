@@ -1,8 +1,11 @@
 <script>
-  let { icon = '+', onclick } = $props();
+  import Icon from './Icon.svelte';
+  let { icon = 'upload', onclick } = $props();
 </script>
 
-<button class="fab" {onclick} aria-label="Add">{icon}</button>
+<button class="fab" {onclick} aria-label="Add">
+  <Icon name={icon} size={24} />
+</button>
 
 <style>
   .fab {
@@ -12,11 +15,15 @@
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: #e63946;
+    background: var(--accent);
     color: #fff;
     border: none;
-    font-size: 1.4rem;
-    box-shadow: 0 4px 16px rgba(230, 57, 70, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(230, 57, 70, 0.35);
     z-index: 10;
+    transition: transform 0.1s ease;
   }
+  .fab:active { transform: scale(0.94); }
 </style>

@@ -94,7 +94,7 @@
 
 <div class="timeline-tab">
   <div class="search">
-    <input placeholder="Search a marker (e.g. Vitamin D)…" bind:value={query}
+    <input class="input" placeholder="Search a marker (e.g. Vitamin D)…" bind:value={query}
            oninput={() => { if (activeMarker && query !== activeMarker) activeMarker = null; }} />
     {#if activeMarker}
       <button class="clear" onclick={clearSearch}>✕</button>
@@ -156,8 +156,8 @@
             <span class="date">{item.date}</span>
             <span class="note-text">{item.text}</span>
             <div class="note-actions">
-              <button onclick={() => openNoteModal(item)}>Edit</button>
-              <button class="danger" onclick={() => deleteNote(item.id)}>Delete</button>
+              <button class="btn btn-sm" onclick={() => openNoteModal(item)}>Edit</button>
+              <button class="btn btn-sm btn-danger" onclick={() => deleteNote(item.id)}>Delete</button>
             </div>
           </div>
         {/if}
@@ -165,17 +165,17 @@
     {/if}
   </div>
 
-  <Fab icon="✎" onclick={() => openNoteModal()} />
+  <Fab icon="pen-line" onclick={() => openNoteModal()} />
 
   {#if noteModalOpen}
     <div class="overlay" role="button" tabindex="0" onclick={() => (noteModalOpen = false)}
          onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (noteModalOpen = false)}>
-      <div class="sheet" role="presentation" onclick={e => e.stopPropagation()}>
+      <div class="sheet" role="presentation" onclick={e => e.stopPropagation()} onkeydown={e => e.stopPropagation()}>
         <h2>{editingNoteId ? 'Edit note' : 'Add note'}</h2>
-        <textarea rows="4" placeholder="e.g. Took a Vitamin D shot today" bind:value={noteText}></textarea>
+        <textarea class="textarea" rows="4" placeholder="e.g. Took a Vitamin D shot today" bind:value={noteText}></textarea>
         <div class="sheet-actions">
-          <button onclick={() => (noteModalOpen = false)}>Cancel</button>
-          <button class="primary" onclick={saveNote}>Save</button>
+          <button class="btn btn-ghost" onclick={() => (noteModalOpen = false)}>Cancel</button>
+          <button class="btn btn-primary" onclick={saveNote}>Save</button>
         </div>
       </div>
     </div>
@@ -185,48 +185,29 @@
 <style>
   .timeline-tab { height: 100%; display: flex; flex-direction: column; position: relative; }
   .search { position: relative; padding: 12px 16px; flex-shrink: 0; }
-  .search input {
-    width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 10px;
-    border: 1px solid #252525; background: #111; color: #f0f0f0;
-  }
+  .search input { padding-right: 34px; }
   .search .clear {
-    position: absolute; right: 24px; top: 20px; background: none; border: none; color: #777;
+    position: absolute; right: 26px; top: 22px; background: none; border: none; color: var(--muted);
   }
   .suggestions {
     position: absolute; left: 16px; right: 16px; top: 52px; z-index: 5;
-    background: #1a1a1a; border: 1px solid #252525; border-radius: 10px; list-style: none;
-    margin: 0; padding: 4px; max-height: 240px; overflow-y: auto;
+    background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+    list-style: none; margin: 0; padding: 4px; max-height: 240px; overflow-y: auto;
   }
   .suggestions li button {
-    width: 100%; text-align: left; padding: 8px 10px; background: none; border: none; color: #f0f0f0;
+    width: 100%; text-align: left; padding: 9px 10px; background: none; border: none; color: var(--text); border-radius: 8px;
   }
-  .suggestions li button:hover { background: #252525; }
+  .suggestions li button:active { background: var(--bg); }
   .feed { flex: 1; overflow-y: auto; padding: 0 16px 80px; }
-  .empty { color: #777; text-align: center; padding: 40px 20px; }
-  .marker-heading { color: #e63946; margin: 8px 0; }
-  .card {
-    background: #1a1a1a; border: 1px solid #252525; border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 8px;
-  }
-  .card-head { display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
-  .date { color: #777; font-size: 0.78rem; }
-  .out-of-range { color: #ff8891; }
-  .expanded { margin-top: 8px; border-top: 1px solid #252525; padding-top: 8px; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 20px; }
+  .marker-heading { color: var(--accent-dim); margin: 8px 0; }
+  .card { margin-bottom: 10px; }
+  .card-head { display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+  .date { color: var(--muted); font-size: 0.78rem; }
+  .expanded { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
   .expanded ul { margin: 0; padding-left: 18px; }
-  .expanded .ok { color: #7ed6a5; margin: 0; }
-  .link { background: none; border: none; color: #e63946; padding: 6px 0 0; }
+  .expanded .ok { color: var(--ok); margin: 0; }
+  .link { background: none; border: none; color: var(--accent); padding: 6px 0 0; font-weight: 500; }
   .note-card { display: flex; flex-direction: column; gap: 4px; }
-  .note-actions { display: flex; gap: 8px; margin-top: 4px; }
-  .note-actions button { font-size: 0.78rem; background: none; border: 1px solid #252525; color: #aaa; border-radius: 6px; padding: 3px 8px; }
-  .note-actions .danger { color: #e63946; border-color: #b52a35; }
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; z-index: 100; }
-  .sheet { background: #1a1a1a; width: 100%; border-radius: 16px 16px 0 0; padding: 20px; box-sizing: border-box; }
-  .sheet h2 { margin: 0 0 12px; font-size: 1.1rem; }
-  .sheet textarea {
-    width: 100%; box-sizing: border-box; background: #111; border: 1px solid #252525;
-    color: #f0f0f0; border-radius: 8px; padding: 10px; font-family: inherit; resize: vertical;
-  }
-  .sheet-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-  .sheet-actions button { padding: 8px 16px; border-radius: 8px; border: 1px solid #252525; background: none; color: #aaa; }
-  .sheet-actions .primary { background: #e63946; border: none; color: #fff; }
+  .note-actions { display: flex; gap: 8px; margin-top: 6px; }
 </style>

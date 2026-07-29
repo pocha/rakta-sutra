@@ -96,8 +96,8 @@
           <div class="text">{r.text}</div>
         </div>
         <div class="actions">
-          <button onclick={() => openModal(r)}>Edit</button>
-          <button class="danger" onclick={() => remove(r)}>Delete</button>
+          <button class="btn btn-sm" onclick={() => openModal(r)}>Edit</button>
+          <button class="btn btn-sm btn-danger" onclick={() => remove(r)}>Delete</button>
         </div>
       </div>
     {/each}
@@ -110,30 +110,30 @@
           <div class="when">{formatWhen(r)}</div>
           <div class="text">{r.text}</div>
         </div>
-        <button class="danger" onclick={() => remove(r)}>Delete</button>
+        <button class="btn btn-sm btn-danger" onclick={() => remove(r)}>Delete</button>
       </div>
     {/each}
   </div>
 
-  <Fab icon="⏰" onclick={() => openModal()} />
+  <Fab icon="alarm-clock" onclick={() => openModal()} />
 
   {#if modalOpen}
     <div class="overlay" role="button" tabindex="0" onclick={() => (modalOpen = false)}
          onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (modalOpen = false)}>
-      <div class="sheet" role="presentation" onclick={e => e.stopPropagation()}>
+      <div class="sheet" role="presentation" onclick={e => e.stopPropagation()} onkeydown={e => e.stopPropagation()}>
         <h2>{editingId ? 'Edit reminder' : 'Add reminder'}</h2>
-        <textarea rows="3" placeholder="e.g. Take Vitamin D shot every Monday at 9am"
+        <textarea class="textarea" rows="3" placeholder="e.g. Take Vitamin D shot every Monday at 9am"
                    bind:value={text} disabled={!!clarifyQuestion}></textarea>
 
         {#if clarifyQuestion}
           <p class="question">{clarifyQuestion}</p>
-          <input placeholder="e.g. tomorrow at 9am" bind:value={clarifyAnswer} />
+          <input class="input" placeholder="e.g. tomorrow at 9am" bind:value={clarifyAnswer} />
         {/if}
         {#if errorMsg}<p class="error">{errorMsg}</p>{/if}
 
         <div class="sheet-actions">
-          <button onclick={() => (modalOpen = false)}>Cancel</button>
-          <button class="primary" onclick={submit}>{clarifyQuestion ? 'Continue' : 'Save'}</button>
+          <button class="btn btn-ghost" onclick={() => (modalOpen = false)}>Cancel</button>
+          <button class="btn btn-primary" onclick={submit}>{clarifyQuestion ? 'Continue' : 'Save'}</button>
         </div>
       </div>
     </div>
@@ -143,33 +143,18 @@
 <style>
   .reminder-tab { height: 100%; display: flex; flex-direction: column; position: relative; }
   .feed { flex: 1; overflow-y: auto; padding: 12px 16px 80px; }
-  h3 { color: #e63946; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 8px; }
-  .empty { color: #777; }
+  h3 { color: var(--accent-dim); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 4px 8px; }
+  .empty { color: var(--muted); padding: 0 4px; }
   .card {
     display: flex; justify-content: space-between; align-items: center;
-    background: #1a1a1a; border: 1px solid #252525; border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 8px;
+    margin-bottom: 10px;
   }
-  .card.past { opacity: 0.6; }
-  .when { color: #777; font-size: 0.78rem; }
+  .card.past { opacity: 0.65; }
+  .when { color: var(--muted); font-size: 0.78rem; }
   .text { margin-top: 2px; }
   .actions { display: flex; gap: 8px; flex-shrink: 0; }
-  .actions button, .card.past button {
-    font-size: 0.78rem; background: none; border: 1px solid #252525; color: #aaa;
-    border-radius: 6px; padding: 3px 8px;
-  }
-  .danger { color: #e63946; border-color: #b52a35; }
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; z-index: 100; }
-  .sheet { background: #1a1a1a; width: 100%; border-radius: 16px 16px 0 0; padding: 20px; box-sizing: border-box; }
-  .sheet h2 { margin: 0 0 12px; font-size: 1.1rem; }
-  .sheet textarea, .sheet input {
-    width: 100%; box-sizing: border-box; background: #111; border: 1px solid #252525;
-    color: #f0f0f0; border-radius: 8px; padding: 10px; font-family: inherit; resize: vertical;
-    margin-bottom: 8px;
-  }
-  .question { color: #f0b8be; font-size: 0.9rem; }
-  .error { color: #ff8891; font-size: 0.85rem; }
+  .input, .textarea { margin-bottom: 8px; }
+  .question { color: var(--accent-dim); font-size: 0.88rem; }
+  .error { color: var(--accent-dim); font-size: 0.85rem; }
   .sheet-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
-  .sheet-actions button { padding: 8px 16px; border-radius: 8px; border: 1px solid #252525; background: none; color: #aaa; }
-  .sheet-actions .primary { background: #e63946; border: none; color: #fff; }
 </style>

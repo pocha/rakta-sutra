@@ -203,13 +203,13 @@
     </div>
   {/if}
 
-  <Fab icon="📄" onclick={pickAndUpload} />
+  <Fab icon="upload" onclick={pickAndUpload} />
 </div>
 
 <style>
   .report-tab { height: 100%; display: flex; flex-direction: column; position: relative; }
-  .empty { padding: 40px 20px; text-align: center; color: #777; }
-  .status { padding: 8px 16px; font-size: 0.85rem; color: #f0b8be; }
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
+  .status { padding: 8px 16px; font-size: 0.85rem; color: var(--accent-dim); }
   .pager {
     flex: 1;
     display: flex;
@@ -221,7 +221,7 @@
     scroll-snap-align: start;
     display: flex;
     flex-direction: column;
-    padding: 12px 16px;
+    padding: 14px 16px;
     box-sizing: border-box;
     overflow-y: auto;
   }
@@ -231,35 +231,39 @@
     align-items: baseline;
     position: sticky;
     top: 0;
-    background: #090909;
-    padding-bottom: 8px;
+    background: var(--bg);
+    padding-bottom: 10px;
     z-index: 2;
   }
-  .relative { color: #777; font-size: 0.85rem; margin-left: 8px; }
+  .relative { color: var(--muted); font-size: 0.85rem; margin-left: 8px; }
   .page-actions button {
     font-size: 0.78rem;
-    background: none;
-    border: 1px solid #252525;
-    color: #aaa;
-    border-radius: 6px;
-    padding: 4px 8px;
+    background: var(--surface);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    color: var(--muted-lt);
+    border-radius: 8px;
+    padding: 5px 10px;
     margin-left: 6px;
   }
-  .page-actions .danger { color: #e63946; border-color: #b52a35; }
+  .page-actions .danger { color: var(--accent-dim); }
+  .table-scroll { background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #1a1a1a; }
-  .group-header td { color: #e63946; font-weight: 600; font-size: 0.8rem; padding-top: 14px; }
-  tr.out-of-range td { color: #ff8891; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+  .group-header td { color: var(--accent-dim); font-weight: 700; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 12px 6px; border-bottom: none; background: var(--bg); }
+  tr.out-of-range td { color: var(--accent-dim); }
+  tr:last-child td { border-bottom: none; }
   input[type='number'] {
-    width: 90px; background: #111; border: 1px solid #252525; color: #f0f0f0;
-    border-radius: 6px; padding: 4px 6px;
+    width: 90px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 8px;
   }
-  .add-marker { display: flex; gap: 6px; padding: 12px 0; }
-  .add-marker select, .add-marker input { background: #111; border: 1px solid #252525; color: #f0f0f0; border-radius: 6px; padding: 6px; }
+  .add-marker { display: flex; gap: 8px; padding: 14px 0 6px; }
+  .add-marker select, .add-marker input { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-sm); }
   .add-marker select { flex: 1; }
   .add-marker input { width: 80px; }
-  .add-marker button { background: #e63946; border: none; color: #fff; border-radius: 6px; padding: 6px 12px; }
-  .dots { display: flex; justify-content: center; gap: 6px; padding: 6px 0; }
-  .dots span { width: 6px; height: 6px; border-radius: 50%; background: #333; }
-  .dots span.active { background: #e63946; }
+  .add-marker button { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 500; }
+  .dots { display: flex; justify-content: center; gap: 6px; padding: 8px 0; }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .dots span.active { background: var(--accent); }
 </style>
