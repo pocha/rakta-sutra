@@ -40,13 +40,19 @@ export function extractMarkersFromText(text) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Journal entry: date defaults to today when nothing is mentioned — journal
-// notes rarely need a clarification round-trip.
+// Journal entry: date/time defaults to right now when nothing is mentioned —
+// most notes don't reference a date/time at all.
+// Uses the *strict* parser (not chrono.casual) deliberately: casual mode is
+// tuned for short scheduling phrases and is prone to false positives on
+// ordinary sentences (e.g. grabbing a stray number as a clock time), which
+// would silently push the note to some other time. Strict mode still catches
+// real mentions ("yesterday", "at 9am", "last Monday") but ignores everything
+// else, so "took 2 tablets" doesn't get misread as "2 o'clock".
 // ─────────────────────────────────────────────────────────────────────────────
 export function parseJournalText(text, refDate = new Date()) {
-  const results = chrono.casual.parse(text, refDate, { forwardDate: false });
-  const date = results.length ? toISODate(results[0].start.date()) : toISODate(refDate);
-  return { date, canonicals: extractMarkersFromText(text) };
+  const results = chrono.parse(text, refDate, { forwardDate: false });
+  const when = results.length ? results[0].start.date() : refDate;
+  return { date: when.toISOString(), canonicals: extractMarkersFromText(text) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,8 +97,4 @@ export function parseReminderText(text, refDate = new Date()) {
   if (recurrence && !parsed.start.isCertain('hour')) remindAt.setHours(9, 0, 0, 0);
 
   return { remindAt: remindAt.toISOString(), recurrence, needsClarification: false };
-}
-
-function toISODate(d) {
-  return d.toISOString().slice(0, 10);
 }

@@ -48,8 +48,8 @@
       <img class="logo" src={logo} alt="" />
       <h1>Track Blood</h1>
       {#if appState.activeTab === 'report'}
-        <button class="icon-btn share-btn" disabled={sharing} onclick={shareReport} aria-label="Share consolidated report">
-          <Icon name="share-2" size={20} />
+        <button class="share-btn" disabled={sharing} onclick={shareReport}>
+          <Icon name="share-2" size={16} /> Share Report
         </button>
       {/if}
     {/if}
@@ -110,7 +110,22 @@
   }
   .icon-btn:active { background: var(--bg); }
   .icon-btn:disabled { opacity: 0.4; }
-  .share-btn { margin-left: auto; color: var(--accent-dim); }
+  .share-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    background: var(--accent-soft);
+    color: var(--accent-dim);
+    border: none;
+    border-radius: 999px;
+    padding: 6px 12px 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .share-btn:disabled { opacity: 0.5; }
   .content {
     flex: 1;
     min-height: 0;

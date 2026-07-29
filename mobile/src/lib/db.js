@@ -250,7 +250,7 @@ function isOutOfRange(value, refRange) {
 
 export async function getTimelineFeed(profileId) {
   const reportRows = (await db.query(
-    `SELECT id, report_date as date, file_name FROM reports WHERE profile_id = ? ORDER BY report_date DESC`,
+    `SELECT id, report_date as date, file_name, file_path FROM reports WHERE profile_id = ? ORDER BY report_date DESC`,
     [profileId]
   )).values;
 
@@ -276,6 +276,7 @@ export async function getTimelineFeed(profileId) {
       id: r.id,
       date: r.date,
       file_name: r.file_name,
+      file_path: r.file_path,
       kind: 'report',
       marker_count: markers.length,
       ref_count: markers.filter(m => isOutOfRange(m.value, m.ref_range)).length,

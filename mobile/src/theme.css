@@ -91,20 +91,31 @@ button {
 }
 .textarea { resize: vertical; }
 
-/* ── Overlay sheets (bottom sheet + modal) ───────────────────────────── */
+/* ── Overlay + centered modal popup ──────────────────────────────────── */
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(20, 20, 24, 0.35);
+  background: rgba(20, 20, 24, 0.45);
   z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
 }
 .sheet {
   background: var(--surface);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 420px;
+  animation: sheet-pop 0.15s ease-out;
 }
 .sheet h2 { margin: 0 0 14px; font-size: 1.05rem; font-weight: 600; }
+@keyframes sheet-pop {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
 
 /* ── Chips / badges ───────────────────────────────────────────────────── */
 .chip {

@@ -6,6 +6,7 @@
   import { saveReportFile, deleteReportFile, openReportFile } from '../lib/reports.js';
   import { appState } from '../lib/state.svelte.js';
   import { showToast } from '../lib/toast.svelte.js';
+  import { truncationCheck } from '../lib/actions.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
 
@@ -164,6 +165,7 @@
       {#each reports as report, i (report.id)}
         <section class="page">
           <div class="page-head">
+            <div class="page-head-spacer" aria-hidden="true"></div>
             <div class="page-head-nav">
               <button class="nav-btn" disabled={i === 0} onclick={() => goToPage(-1)} aria-label="Newer report">
                 <Icon name="chevron-left" size={18} />
@@ -177,8 +179,8 @@
               </button>
             </div>
             <div class="page-head-actions">
-              <button class="icon-text-btn" onclick={() => openReportFile(report.file_path)}>
-                <Icon name="file-text" size={16} /> View Original PDF
+              <button class="icon-btn-sm" onclick={() => openReportFile(report.file_path)} aria-label="View original PDF">
+                <Icon name="eye" size={18} />
               </button>
               <button class="icon-btn-sm danger" onclick={() => removeReport(report)} aria-label="Delete report">
                 <Icon name="trash-2" size={17} />
@@ -188,14 +190,22 @@
 
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Marker</th><th>Value</th></tr></thead>
+              <thead><tr><th>Marker</th><th>Range</th><th>Value</th></tr></thead>
               <tbody>
                 {#each groupedRows(report.id) as row}
                   {#if row.header}
-                    <tr class="group-header"><td colspan="2">{row.header}</td></tr>
+                    <tr class="group-header"><td colspan="3">{row.header}</td></tr>
                   {:else}
                     <tr class:out-of-range={outOfRange(row.marker)}>
-                      <td>{row.marker.canonical}</td>
+                      <td>
+                        <div class="marker-cell">
+                          <span class="marker-name" use:truncationCheck>{row.marker.canonical}</span>
+                          <button class="info-btn" onclick={() => showToast(row.marker.canonical, 'info')} aria-label="Full marker name">
+                            <Icon name="info" size={14} />
+                          </button>
+                        </div>
+                      </td>
+                      <td class="range-cell">{row.marker.ref_range ?? ''}</td>
                       <td>
                         <input
                           type="number" step="any"
@@ -252,17 +262,16 @@
     scroll-snap-align: start;
     display: flex;
     flex-direction: column;
-    padding: 14px 16px 24px;
+    padding: 14px 16px 96px;
     box-sizing: border-box;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
   }
   .page-head {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
     position: sticky;
     top: 0;
@@ -270,8 +279,9 @@
     padding-bottom: 10px;
     z-index: 2;
   }
-  .page-head-nav { display: flex; align-items: center; gap: 4px; }
-  .page-head-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .page-head-spacer { min-width: 0; }
+  .page-head-nav { display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .page-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
   .page-head-title { text-align: center; min-width: 96px; }
   .relative { color: var(--muted); font-size: 0.8rem; display: block; }
   .nav-btn {
@@ -288,19 +298,6 @@
     flex-shrink: 0;
   }
   .nav-btn:disabled { color: var(--muted); opacity: 0.4; }
-  .icon-text-btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.74rem;
-    white-space: nowrap;
-    background: var(--surface);
-    border: none;
-    box-shadow: var(--shadow-sm);
-    color: var(--muted-lt);
-    border-radius: 8px;
-    padding: 6px 10px;
-  }
   .icon-btn-sm {
     display: flex;
     align-items: center;
@@ -317,15 +314,24 @@
   .icon-btn-sm.danger { color: var(--accent-dim); }
   .swipe-hint { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 0 0 6px; }
   .table-scroll { background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: auto; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); overflow: hidden; }
   th { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+  th:nth-child(1), td:nth-child(1) { width: 58%; }
+  th:nth-child(2), td:nth-child(2) { width: 22%; }
+  th:nth-child(3), td:nth-child(3) { width: 20%; }
+  .marker-cell { display: flex; align-items: center; gap: 4px; width: 100%; }
+  .marker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .info-btn { flex-shrink: 0; background: none; border: none; color: var(--muted); padding: 2px; display: none; }
+  .marker-cell.truncated .info-btn { display: flex; }
+  .range-cell { font-size: 0.78rem; color: var(--muted-lt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .group-header td { color: var(--accent-dim); font-weight: 700; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 12px 6px; border-bottom: none; background: var(--bg); }
   tr.out-of-range td { color: var(--accent-dim); }
   tr:last-child td { border-bottom: none; }
   input[type='number'] {
-    width: 90px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
-    border-radius: 8px; padding: 6px 8px;
+    width: 100%; max-width: 88px; box-sizing: border-box;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 6px;
   }
   .add-marker { display: flex; gap: 8px; padding: 14px 0 6px; align-items: center; }
   .add-marker select, .add-marker input { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-sm); }

@@ -4,6 +4,8 @@
   import { REF_RANGES, parseRefRange } from '../lib/parser.js';
   import { parseJournalText } from '../lib/textParse.js';
   import { jumpToReport } from '../lib/state.svelte.js';
+  import { deleteReportFile, openReportFile } from '../lib/reports.js';
+  import { showToast } from '../lib/toast.svelte.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
 
@@ -91,6 +93,22 @@
     await load();
     if (activeMarker) markerTimeline = await db.getMarkerTimeline(profileId, activeMarker);
   }
+
+  async function removeReport(item) {
+    if (!confirm(`Delete report (${item.date})? This removes it and all its values.`)) return;
+    try {
+      await db.deleteReport(item.id);
+      await deleteReportFile(item.file_path);
+      await load();
+    } catch (e) {
+      showToast('Could not delete report: ' + e.message, 'error');
+      console.error(e);
+    }
+  }
+
+  function formatEntryDateTime(iso) {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
 </script>
 
 <div class="timeline-tab">
@@ -116,7 +134,7 @@
       {/if}
       {#each markerTimeline as entry}
         <div class="card">
-          <span class="date">{entry.date}</span>
+          <span class="date">{entry.kind === 'note' ? formatEntryDateTime(entry.date) : entry.date}</span>
           {#if entry.kind === 'value'}
             <span class:out-of-range={outOfRange(entry)}>
               Test value: <strong>{entry.value}</strong> {entry.ref_range ? `(ref ${entry.ref_range})` : ''}
@@ -132,10 +150,20 @@
       {#each feed as item (item.kind + item.id)}
         {#if item.kind === 'report'}
           <div class="card report-card">
-            <div class="card-head" role="button" tabindex="0" onclick={() => toggleExpand(item)}
-                 onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleExpand(item)}>
-              <span class="date">{item.date}</span>
-              <span>Report uploaded — {item.marker_count} markers{item.ref_count ? `, ${item.ref_count} out of range` : ''}</span>
+            <div class="card-row">
+              <div class="card-head" role="button" tabindex="0" onclick={() => toggleExpand(item)}
+                   onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && toggleExpand(item)}>
+                <span class="date">{item.date}</span>
+                <span>Report uploaded — {item.marker_count} markers{item.ref_count ? `, ${item.ref_count} out of range` : ''}</span>
+              </div>
+              <div class="card-actions">
+                <button class="icon-btn-sm" onclick={() => openReportFile(item.file_path)} aria-label="View original PDF">
+                  <Icon name="eye" size={16} />
+                </button>
+                <button class="icon-btn-sm danger" onclick={() => removeReport(item)} aria-label="Delete report">
+                  <Icon name="trash-2" size={16} />
+                </button>
+              </div>
             </div>
             {#if expandedReportId === item.id}
               <div class="expanded">
@@ -154,15 +182,19 @@
           </div>
         {:else}
           <div class="card note-card">
-            <span class="date">{item.date}</span>
-            <span class="note-text">{item.text}</span>
-            <div class="note-actions">
-              <button class="icon-btn-sm" onclick={() => openNoteModal(item)} aria-label="Edit note">
-                <Icon name="pen-line" size={16} />
-              </button>
-              <button class="icon-btn-sm danger" onclick={() => deleteNote(item.id)} aria-label="Delete note">
-                <Icon name="trash-2" size={16} />
-              </button>
+            <div class="card-row">
+              <div class="note-body">
+                <span class="date">{formatEntryDateTime(item.date)}</span>
+                <span class="note-text">{item.text}</span>
+              </div>
+              <div class="card-actions">
+                <button class="icon-btn-sm" onclick={() => openNoteModal(item)} aria-label="Edit note">
+                  <Icon name="pen-line" size={16} />
+                </button>
+                <button class="icon-btn-sm danger" onclick={() => deleteNote(item.id)} aria-label="Delete note">
+                  <Icon name="trash-2" size={16} />
+                </button>
+              </div>
             </div>
           </div>
         {/if}
@@ -207,14 +239,15 @@
   .empty { color: var(--muted); text-align: center; padding: 40px 20px; }
   .marker-heading { color: var(--accent-dim); margin: 8px 0; }
   .card { margin-bottom: 10px; }
-  .card-head { display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+  .card-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .card-head { display: flex; flex-direction: column; gap: 3px; cursor: pointer; flex: 1; min-width: 0; }
+  .note-body { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+  .card-actions { display: flex; gap: 6px; flex-shrink: 0; }
   .date { color: var(--muted); font-size: 0.78rem; }
   .expanded { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
   .expanded ul { margin: 0; padding-left: 18px; }
   .expanded .ok { color: var(--ok); margin: 0; }
   .link { background: none; border: none; color: var(--accent); padding: 6px 0 0; font-weight: 500; }
-  .note-card { display: flex; flex-direction: column; gap: 4px; }
-  .note-actions { display: flex; gap: 8px; margin-top: 6px; }
   .icon-btn-sm {
     display: flex; align-items: center; justify-content: center;
     background: var(--bg); border: none; color: var(--muted-lt);
