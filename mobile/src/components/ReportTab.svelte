@@ -5,7 +5,9 @@
   import { parsePDF, MARKER_GROUPS, REF_RANGES, parseRefRange } from '../lib/parser.js';
   import { saveReportFile, deleteReportFile, openReportFile } from '../lib/reports.js';
   import { appState } from '../lib/state.svelte.js';
+  import { showToast } from '../lib/toast.svelte.js';
   import Fab from './Fab.svelte';
+  import Icon from './Icon.svelte';
 
   let { profileId } = $props();
 
@@ -107,21 +109,24 @@
       const result = await FilePicker.pickFiles({ types: ['application/pdf'], readData: true });
       for (const file of result.files) {
         statusMsg = `Reading "${file.name}"…`;
-        const buffer = base64ToArrayBuffer(file.data);
-        const { date, extracted } = await parsePDF(buffer);
+        // pdf.js takes ownership of the buffer passed to it (transferred to its
+        // worker) and detaches it once parsing starts — decode a separate copy
+        // for each use rather than sharing one ArrayBuffer between the two.
+        const { date, extracted } = await parsePDF(base64ToArrayBuffer(file.data));
         let reportDate = date;
         if (!reportDate) {
           reportDate = window.prompt(`Could not detect a date in "${file.name}".\nEnter the report date (YYYY-MM-DD):`, '');
           if (!reportDate) continue;
         }
-        const path = await saveReportFile(profileId, file.name, buffer);
+        const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
         await db.addReport(profileId, reportDate, file.name, path, extracted);
       }
       pageIndex = 0;
       statusMsg = '';
       await refresh();
     } catch (err) {
-      statusMsg = 'Upload failed: ' + err.message;
+      statusMsg = '';
+      showToast('Upload failed: ' + err.message, 'error');
       console.error(err);
     } finally {
       busy = false;
@@ -140,6 +145,13 @@
     const w = e.target.clientWidth;
     pageIndex = Math.round(e.target.scrollLeft / w);
   }
+
+  // '‹' moves toward index-1 (newer report, leftmost); '›' moves toward
+  // index+1 (older report) — matches reports[] being sorted newest-first.
+  function goToPage(delta) {
+    const target = Math.min(Math.max(pageIndex + delta, 0), reports.length - 1);
+    pagerEl.scrollTo({ left: target * pagerEl.clientWidth, behavior: 'smooth' });
+  }
 </script>
 
 <div class="report-tab">
@@ -152,13 +164,25 @@
       {#each reports as report, i (report.id)}
         <section class="page">
           <div class="page-head">
-            <div>
-              <strong>{report.report_date}</strong>
-              <span class="relative">{relativeLabel(report.report_date)}</span>
+            <div class="page-head-nav">
+              <button class="nav-btn" disabled={i === 0} onclick={() => goToPage(-1)} aria-label="Newer report">
+                <Icon name="chevron-left" size={18} />
+              </button>
+              <div class="page-head-title">
+                <strong>{report.report_date}</strong>
+                <span class="relative">{relativeLabel(report.report_date)}</span>
+              </div>
+              <button class="nav-btn" disabled={i === reports.length - 1} onclick={() => goToPage(1)} aria-label="Older report">
+                <Icon name="chevron-right" size={18} />
+              </button>
             </div>
-            <div class="page-actions">
-              <button onclick={() => openReportFile(report.file_path)}>View original PDF</button>
-              <button class="danger" onclick={() => removeReport(report)}>Delete</button>
+            <div class="page-head-actions">
+              <button class="icon-text-btn" onclick={() => openReportFile(report.file_path)}>
+                <Icon name="file-text" size={16} /> View Original PDF
+              </button>
+              <button class="icon-btn-sm danger" onclick={() => removeReport(report)} aria-label="Delete report">
+                <Icon name="trash-2" size={17} />
+              </button>
             </div>
           </div>
 
@@ -192,7 +216,9 @@
               {#each availableToAdd(report.id) as c}<option value={c}>{c}</option>{/each}
             </select>
             <input type="number" step="any" placeholder="Value" bind:value={addValue} />
-            <button onclick={() => addMarker(report.id)}>Add</button>
+            <button class="icon-btn-sm add-btn" onclick={() => addMarker(report.id)} aria-label="Add marker">
+              <Icon name="plus" size={18} />
+            </button>
           </div>
         </section>
       {/each}
@@ -201,53 +227,96 @@
     <div class="dots">
       {#each reports as _, i}<span class:active={i === pageIndex}></span>{/each}
     </div>
+    {#if reports.length > 1}<p class="swipe-hint">Swipe, or tap ‹ ›, to see other reports</p>{/if}
   {/if}
 
   <Fab icon="upload" onclick={pickAndUpload} />
 </div>
 
 <style>
-  .report-tab { height: 100%; display: flex; flex-direction: column; position: relative; }
+  .report-tab { height: 100%; min-height: 0; display: flex; flex-direction: column; position: relative; }
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
-  .status { padding: 8px 16px; font-size: 0.85rem; color: var(--accent-dim); }
+  .status { padding: 8px 16px; font-size: 0.85rem; color: var(--muted); }
   .pager {
     flex: 1;
+    min-height: 0;
+    height: 100%;
     display: flex;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
   }
   .page {
     min-width: 100%;
+    height: 100%;
+    min-height: 0;
     scroll-snap-align: start;
     display: flex;
     flex-direction: column;
-    padding: 14px 16px;
+    padding: 14px 16px 24px;
     box-sizing: border-box;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .page-head {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    align-items: baseline;
+    gap: 8px;
     position: sticky;
     top: 0;
     background: var(--bg);
     padding-bottom: 10px;
     z-index: 2;
   }
-  .relative { color: var(--muted); font-size: 0.85rem; margin-left: 8px; }
-  .page-actions button {
-    font-size: 0.78rem;
+  .page-head-nav { display: flex; align-items: center; gap: 4px; }
+  .page-head-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .page-head-title { text-align: center; min-width: 96px; }
+  .relative { color: var(--muted); font-size: 0.8rem; display: block; }
+  .nav-btn {
+    background: var(--surface);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    color: var(--accent-dim);
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .nav-btn:disabled { color: var(--muted); opacity: 0.4; }
+  .icon-text-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    white-space: nowrap;
     background: var(--surface);
     border: none;
     box-shadow: var(--shadow-sm);
     color: var(--muted-lt);
     border-radius: 8px;
-    padding: 5px 10px;
-    margin-left: 6px;
+    padding: 6px 10px;
   }
-  .page-actions .danger { color: var(--accent-dim); }
-  .table-scroll { background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden; }
+  .icon-btn-sm {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    color: var(--muted-lt);
+    border-radius: 8px;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+  }
+  .icon-btn-sm.danger { color: var(--accent-dim); }
+  .swipe-hint { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 0 0 6px; }
+  .table-scroll { background: var(--surface); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: auto; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   th { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
@@ -258,11 +327,11 @@
     width: 90px; background: var(--bg); border: 1px solid var(--border); color: var(--text);
     border-radius: 8px; padding: 6px 8px;
   }
-  .add-marker { display: flex; gap: 8px; padding: 14px 0 6px; }
+  .add-marker { display: flex; gap: 8px; padding: 14px 0 6px; align-items: center; }
   .add-marker select, .add-marker input { background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 8px; box-shadow: var(--shadow-sm); }
   .add-marker select { flex: 1; }
   .add-marker input { width: 80px; }
-  .add-marker button { background: var(--accent); border: none; color: #fff; border-radius: 8px; padding: 8px 14px; font-weight: 500; }
+  .add-btn { background: var(--accent); color: #fff; box-shadow: none; }
   .dots { display: flex; justify-content: center; gap: 6px; padding: 8px 0; }
   .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
   .dots span.active { background: var(--accent); }

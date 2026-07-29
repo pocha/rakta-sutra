@@ -5,6 +5,7 @@
   import { parseJournalText } from '../lib/textParse.js';
   import { jumpToReport } from '../lib/state.svelte.js';
   import Fab from './Fab.svelte';
+  import Icon from './Icon.svelte';
 
   let { profileId } = $props();
 
@@ -156,8 +157,12 @@
             <span class="date">{item.date}</span>
             <span class="note-text">{item.text}</span>
             <div class="note-actions">
-              <button class="btn btn-sm" onclick={() => openNoteModal(item)}>Edit</button>
-              <button class="btn btn-sm btn-danger" onclick={() => deleteNote(item.id)}>Delete</button>
+              <button class="icon-btn-sm" onclick={() => openNoteModal(item)} aria-label="Edit note">
+                <Icon name="pen-line" size={16} />
+              </button>
+              <button class="icon-btn-sm danger" onclick={() => deleteNote(item.id)} aria-label="Delete note">
+                <Icon name="trash-2" size={16} />
+              </button>
             </div>
           </div>
         {/if}
@@ -183,7 +188,7 @@
 </div>
 
 <style>
-  .timeline-tab { height: 100%; display: flex; flex-direction: column; position: relative; }
+  .timeline-tab { height: 100%; min-height: 0; display: flex; flex-direction: column; position: relative; }
   .search { position: relative; padding: 12px 16px; flex-shrink: 0; }
   .search input { padding-right: 34px; }
   .search .clear {
@@ -198,7 +203,7 @@
     width: 100%; text-align: left; padding: 9px 10px; background: none; border: none; color: var(--text); border-radius: 8px;
   }
   .suggestions li button:active { background: var(--bg); }
-  .feed { flex: 1; overflow-y: auto; padding: 0 16px 80px; }
+  .feed { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 80px; }
   .empty { color: var(--muted); text-align: center; padding: 40px 20px; }
   .marker-heading { color: var(--accent-dim); margin: 8px 0; }
   .card { margin-bottom: 10px; }
@@ -210,4 +215,10 @@
   .link { background: none; border: none; color: var(--accent); padding: 6px 0 0; font-weight: 500; }
   .note-card { display: flex; flex-direction: column; gap: 4px; }
   .note-actions { display: flex; gap: 8px; margin-top: 6px; }
+  .icon-btn-sm {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border: none; color: var(--muted-lt);
+    border-radius: 8px; width: 30px; height: 30px; flex-shrink: 0;
+  }
+  .icon-btn-sm.danger { color: var(--accent-dim); }
 </style>

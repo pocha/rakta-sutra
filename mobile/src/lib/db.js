@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
+import { parseRefRange } from './parser.js';
 
 const DB_NAME = 'trackblood';
 const sqlite = new SQLiteConnection(CapacitorSQLite);
@@ -128,24 +129,26 @@ export async function deleteProfile(id) {
 
 // ── Reports & markers ───────────────────────────────────────────────────────
 export async function addReport(profileId, reportDate, fileName, filePath, extractedMarkers) {
-  await db.execute('BEGIN TRANSACTION');
+  await db.beginTransaction();
   try {
     const r = await db.run(
       'INSERT INTO reports (profile_id, report_date, file_name, file_path) VALUES (?, ?, ?, ?)',
-      [profileId, reportDate, fileName, filePath]
+      [profileId, reportDate, fileName, filePath],
+      false
     );
     const reportId = r.changes.lastId;
     for (const [canonical, { value, ref }] of Object.entries(extractedMarkers)) {
       await db.run(
         'INSERT INTO markers (report_id, canonical, value, ref_range) VALUES (?, ?, ?, ?)',
-        [reportId, canonical, value, ref ?? null]
+        [reportId, canonical, value, ref ?? null],
+        false
       );
     }
-    await db.execute('COMMIT');
+    await db.commitTransaction();
     await persist();
     return reportId;
   } catch (e) {
-    await db.execute('ROLLBACK');
+    await db.rollbackTransaction();
     throw e;
   }
 }
@@ -183,46 +186,50 @@ export async function deleteReport(id) {
 
 // ── Journal ─────────────────────────────────────────────────────────────────
 export async function addJournalEntry(profileId, entryDate, text, canonicals) {
-  await db.execute('BEGIN TRANSACTION');
+  await db.beginTransaction();
   try {
     const r = await db.run(
       'INSERT INTO journal_entries (profile_id, entry_date, text) VALUES (?, ?, ?)',
-      [profileId, entryDate, text]
+      [profileId, entryDate, text],
+      false
     );
     const id = r.changes.lastId;
     for (const canonical of canonicals) {
       await db.run(
         'INSERT OR IGNORE INTO journal_marker_index (journal_id, canonical) VALUES (?, ?)',
-        [id, canonical]
+        [id, canonical],
+        false
       );
     }
-    await db.execute('COMMIT');
+    await db.commitTransaction();
     await persist();
     return id;
   } catch (e) {
-    await db.execute('ROLLBACK');
+    await db.rollbackTransaction();
     throw e;
   }
 }
 
 export async function updateJournalEntry(id, entryDate, text, canonicals) {
-  await db.execute('BEGIN TRANSACTION');
+  await db.beginTransaction();
   try {
     await db.run(
       'UPDATE journal_entries SET entry_date = ?, text = ? WHERE id = ?',
-      [entryDate, text, id]
+      [entryDate, text, id],
+      false
     );
-    await db.run('DELETE FROM journal_marker_index WHERE journal_id = ?', [id]);
+    await db.run('DELETE FROM journal_marker_index WHERE journal_id = ?', [id], false);
     for (const canonical of canonicals) {
       await db.run(
         'INSERT OR IGNORE INTO journal_marker_index (journal_id, canonical) VALUES (?, ?)',
-        [id, canonical]
+        [id, canonical],
+        false
       );
     }
-    await db.execute('COMMIT');
+    await db.commitTransaction();
     await persist();
   } catch (e) {
-    await db.execute('ROLLBACK');
+    await db.rollbackTransaction();
     throw e;
   }
 }
@@ -235,15 +242,45 @@ export async function deleteJournalEntry(id) {
 // ── Timeline ─────────────────────────────────────────────────────────────────
 // Default feed: one row per report (date + marker count + out-of-range count),
 // one row per journal note, merged and sorted by date (newest first).
+function isOutOfRange(value, refRange) {
+  const bounds = parseRefRange(refRange);
+  if (!bounds) return false;
+  return (bounds.low !== null && value < bounds.low) || (bounds.high !== null && value > bounds.high);
+}
+
 export async function getTimelineFeed(profileId) {
-  const reports = (await db.query(
-    `SELECT r.id, r.report_date as date, r.file_name, 'report' as kind,
-            COUNT(m.id) as marker_count,
-            SUM(CASE WHEN m.ref_range IS NOT NULL THEN 1 ELSE 0 END) as ref_count
-     FROM reports r LEFT JOIN markers m ON m.report_id = r.id
-     WHERE r.profile_id = ? GROUP BY r.id ORDER BY r.report_date DESC`,
+  const reportRows = (await db.query(
+    `SELECT id, report_date as date, file_name FROM reports WHERE profile_id = ? ORDER BY report_date DESC`,
     [profileId]
   )).values;
+
+  // ref_count previously summed "has a reference range" (true for nearly every
+  // marker) instead of "value actually falls outside it" — compute the real
+  // out-of-range count in JS using the same parseRefRange logic the Report
+  // tab uses, rather than a SQL SUM that can't parse "< 5", "80-100", etc.
+  const markerRows = (await db.query(
+    `SELECT m.report_id, m.value, m.ref_range
+     FROM markers m JOIN reports r ON r.id = m.report_id
+     WHERE r.profile_id = ?`,
+    [profileId]
+  )).values;
+
+  const markersByReport = {};
+  for (const row of markerRows) {
+    (markersByReport[row.report_id] ??= []).push(row);
+  }
+
+  const reports = reportRows.map(r => {
+    const markers = markersByReport[r.id] ?? [];
+    return {
+      id: r.id,
+      date: r.date,
+      file_name: r.file_name,
+      kind: 'report',
+      marker_count: markers.length,
+      ref_count: markers.filter(m => isOutOfRange(m.value, m.ref_range)).length,
+    };
+  });
 
   const notes = (await db.query(
     `SELECT id, entry_date as date, text, 'note' as kind FROM journal_entries
@@ -352,9 +389,9 @@ export async function exportAllData() {
 }
 
 export async function importAllData(data) {
-  await db.execute('BEGIN TRANSACTION');
+  await db.beginTransaction();
   try {
-    await db.run('DELETE FROM profiles'); // cascades to every child table
+    await db.run('DELETE FROM profiles', [], false); // cascades to every child table
     for (const table of TABLES_IN_FK_ORDER) {
       const rows = data[table] ?? [];
       for (const row of rows) {
@@ -362,14 +399,15 @@ export async function importAllData(data) {
         const placeholders = cols.map(() => '?').join(', ');
         await db.run(
           `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`,
-          cols.map(c => row[c])
+          cols.map(c => row[c]),
+          false
         );
       }
     }
-    await db.execute('COMMIT');
+    await db.commitTransaction();
     await persist();
   } catch (e) {
-    await db.execute('ROLLBACK');
+    await db.rollbackTransaction();
     throw e;
   }
 }

@@ -1,21 +1,20 @@
 <script>
   import { FilePicker } from '@capawesome/capacitor-file-picker';
   import { createBackupZip, restoreFromZipBase64 } from '../lib/backup.js';
+  import { showToast } from '../lib/toast.svelte.js';
 
   let busy = $state(false);
   let statusMsg = $state('');
-  let statusType = $state('info'); // 'info' | 'error'
 
   async function doBackup() {
     busy = true;
-    statusType = 'info';
     statusMsg = 'Preparing backup…';
     try {
       await createBackupZip();
       statusMsg = 'Backup ready — choose where to save it.';
     } catch (e) {
-      statusType = 'error';
-      statusMsg = 'Backup failed: ' + e.message;
+      statusMsg = '';
+      showToast('Backup failed: ' + e.message, 'error');
       console.error(e);
     } finally {
       busy = false;
@@ -25,7 +24,6 @@
   async function doRestore() {
     if (!confirm('Restoring a backup replaces ALL current data on this device (every profile, report, note, and reminder). Continue?')) return;
     busy = true;
-    statusType = 'info';
     statusMsg = 'Pick a backup .zip file…';
     try {
       const result = await FilePicker.pickFiles({ types: ['application/zip'], readData: true });
@@ -35,8 +33,8 @@
       statusMsg = 'Restore complete — reloading…';
       window.location.reload();
     } catch (e) {
-      statusType = 'error';
-      statusMsg = 'Restore failed: ' + e.message;
+      statusMsg = '';
+      showToast('Restore failed: ' + e.message, 'error');
       console.error(e);
     } finally {
       busy = false;
@@ -65,7 +63,7 @@
   </div>
 
   {#if statusMsg}
-    <p class="status" class:error={statusType === 'error'}>{statusMsg}</p>
+    <p class="status">{statusMsg}</p>
   {/if}
 </div>
 
@@ -75,5 +73,4 @@
   p { margin: 0 0 14px; font-size: 0.88rem; line-height: 1.5; }
   code { background: var(--bg); padding: 1px 5px; border-radius: 4px; }
   .status { text-align: center; font-size: 0.85rem; color: var(--ok); }
-  .status.error { color: var(--accent-dim); }
 </style>

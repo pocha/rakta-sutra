@@ -1,16 +1,10 @@
 <script>
   import { appState, switchProfile, createProfile, openScreen } from '../lib/state.svelte.js';
-  import { generateConsolidatedReportPdf } from '../lib/exportPdf.js';
+  import Icon from './Icon.svelte';
 
   let { onClose } = $props();
   let addingProfile = $state(false);
   let newName = $state('');
-  let busy = $state(false);
-  let statusMsg = $state('');
-
-  const activeProfileName = $derived(
-    appState.profiles.find(p => p.id === appState.activeProfileId)?.name ?? ''
-  );
 
   function pick(id) {
     switchProfile(id);
@@ -23,20 +17,6 @@
     newName = '';
     addingProfile = false;
     onClose();
-  }
-
-  async function shareReport() {
-    busy = true;
-    statusMsg = 'Generating PDF…';
-    try {
-      await generateConsolidatedReportPdf(appState.activeProfileId, activeProfileName);
-      onClose();
-    } catch (e) {
-      statusMsg = 'Could not generate PDF: ' + e.message;
-      console.error(e);
-    } finally {
-      busy = false;
-    }
   }
 </script>
 
@@ -67,7 +47,7 @@
         </form>
       {:else}
         <button class="drawer-item" onclick={() => (addingProfile = true)}>
-          <span class="icon">＋</span> Add Profile
+          <span class="icon"><Icon name="plus" size={18} /></span> Add Profile
         </button>
       {/if}
     </div>
@@ -75,12 +55,8 @@
     <div class="divider"></div>
 
     <div class="section">
-      {#if statusMsg}<p class="status">{statusMsg}</p>{/if}
-      <button class="drawer-item" disabled={busy} onclick={shareReport}>
-        <span class="icon">📤</span> Share consolidated report
-      </button>
       <button class="drawer-item" onclick={() => openScreen('backup')}>
-        <span class="icon">💾</span> Backup
+        <span class="icon"><Icon name="archive" size={19} /></span> Backup
       </button>
     </div>
   </nav>
@@ -146,5 +122,4 @@
   .icon { width: 20px; text-align: center; }
   .add-form { display: flex; gap: 6px; padding: 6px 8px; }
   .divider { height: 1px; background: var(--border); margin: 10px 12px; }
-  .status { color: var(--accent-dim); font-size: 0.82rem; padding: 0 8px 6px; }
 </style>

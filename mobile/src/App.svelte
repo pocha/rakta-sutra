@@ -1,20 +1,41 @@
 <script>
   import { onMount } from 'svelte';
   import { appState, loadProfiles, closeScreen } from './lib/state.svelte.js';
+  import { generateConsolidatedReportPdf } from './lib/exportPdf.js';
+  import { showToast } from './lib/toast.svelte.js';
   import Drawer from './components/Drawer.svelte';
   import BackupScreen from './components/BackupScreen.svelte';
   import TabBar from './components/TabBar.svelte';
   import ReportTab from './components/ReportTab.svelte';
   import TimelineTab from './components/TimelineTab.svelte';
   import ReminderTab from './components/ReminderTab.svelte';
+  import Snackbar from './components/Snackbar.svelte';
+  import Icon from './components/Icon.svelte';
   import logo from './assets/logo.png';
 
   let ready = $state(false);
+  let sharing = $state(false);
 
   onMount(async () => {
     await loadProfiles();
     ready = true;
   });
+
+  const activeProfileName = $derived(
+    appState.profiles.find(p => p.id === appState.activeProfileId)?.name ?? ''
+  );
+
+  async function shareReport() {
+    sharing = true;
+    try {
+      await generateConsolidatedReportPdf(appState.activeProfileId, activeProfileName);
+    } catch (e) {
+      showToast('Could not generate PDF: ' + e.message, 'error');
+      console.error(e);
+    } finally {
+      sharing = false;
+    }
+  }
 </script>
 
 <div class="app-shell">
@@ -26,6 +47,11 @@
       <button class="icon-btn" onclick={() => (appState.drawerOpen = true)} aria-label="Menu">☰</button>
       <img class="logo" src={logo} alt="" />
       <h1>Track Blood</h1>
+      {#if appState.activeTab === 'report'}
+        <button class="icon-btn share-btn" disabled={sharing} onclick={shareReport} aria-label="Share consolidated report">
+          <Icon name="share-2" size={20} />
+        </button>
+      {/if}
     {/if}
   </header>
 
@@ -50,6 +76,8 @@
   {#if appState.drawerOpen}
     <Drawer onClose={() => (appState.drawerOpen = false)} />
   {/if}
+
+  <Snackbar />
 </div>
 
 <style>
@@ -81,8 +109,11 @@
     border-radius: 8px;
   }
   .icon-btn:active { background: var(--bg); }
+  .icon-btn:disabled { opacity: 0.4; }
+  .share-btn { margin-left: auto; color: var(--accent-dim); }
   .content {
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
     background: var(--bg);

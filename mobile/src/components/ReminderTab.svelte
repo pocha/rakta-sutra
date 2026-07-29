@@ -3,7 +3,9 @@
   import * as db from '../lib/db.js';
   import { parseReminderText } from '../lib/textParse.js';
   import { scheduleReminder, cancelReminder } from '../lib/notifications.js';
+  import { showToast } from '../lib/toast.svelte.js';
   import Fab from './Fab.svelte';
+  import Icon from './Icon.svelte';
 
   let { profileId } = $props();
 
@@ -14,7 +16,6 @@
   let text = $state('');
   let clarifyQuestion = $state('');
   let clarifyAnswer = $state('');
-  let errorMsg = $state('');
 
   onMount(load);
 
@@ -36,12 +37,10 @@
     text = reminder?.text ?? '';
     clarifyQuestion = '';
     clarifyAnswer = '';
-    errorMsg = '';
     modalOpen = true;
   }
 
   async function submit() {
-    errorMsg = '';
     const fullText = clarifyQuestion ? `${text} ${clarifyAnswer}` : text;
     if (!text.trim()) return;
 
@@ -49,7 +48,7 @@
     if (parsed.needsClarification) {
       if (clarifyQuestion) {
         // Already asked once — don't loop forever, ask the user to just retype it plainly.
-        errorMsg = "Still couldn't find a time. Try being explicit, e.g. \"29 Jul 9am\".";
+        showToast('Still couldn\'t find a time. Try being explicit, e.g. "29 Jul 9am".', 'error');
         return;
       }
       clarifyQuestion = parsed.question;
@@ -96,8 +95,12 @@
           <div class="text">{r.text}</div>
         </div>
         <div class="actions">
-          <button class="btn btn-sm" onclick={() => openModal(r)}>Edit</button>
-          <button class="btn btn-sm btn-danger" onclick={() => remove(r)}>Delete</button>
+          <button class="icon-btn-sm" onclick={() => openModal(r)} aria-label="Edit reminder">
+            <Icon name="pen-line" size={16} />
+          </button>
+          <button class="icon-btn-sm danger" onclick={() => remove(r)} aria-label="Delete reminder">
+            <Icon name="trash-2" size={16} />
+          </button>
         </div>
       </div>
     {/each}
@@ -110,7 +113,9 @@
           <div class="when">{formatWhen(r)}</div>
           <div class="text">{r.text}</div>
         </div>
-        <button class="btn btn-sm btn-danger" onclick={() => remove(r)}>Delete</button>
+        <button class="icon-btn-sm danger" onclick={() => remove(r)} aria-label="Delete reminder">
+          <Icon name="trash-2" size={16} />
+        </button>
       </div>
     {/each}
   </div>
@@ -129,8 +134,6 @@
           <p class="question">{clarifyQuestion}</p>
           <input class="input" placeholder="e.g. tomorrow at 9am" bind:value={clarifyAnswer} />
         {/if}
-        {#if errorMsg}<p class="error">{errorMsg}</p>{/if}
-
         <div class="sheet-actions">
           <button class="btn btn-ghost" onclick={() => (modalOpen = false)}>Cancel</button>
           <button class="btn btn-primary" onclick={submit}>{clarifyQuestion ? 'Continue' : 'Save'}</button>
@@ -141,8 +144,8 @@
 </div>
 
 <style>
-  .reminder-tab { height: 100%; display: flex; flex-direction: column; position: relative; }
-  .feed { flex: 1; overflow-y: auto; padding: 12px 16px 80px; }
+  .reminder-tab { height: 100%; min-height: 0; display: flex; flex-direction: column; position: relative; }
+  .feed { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px 80px; }
   h3 { color: var(--accent-dim); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 4px 8px; }
   .empty { color: var(--muted); padding: 0 4px; }
   .card {
@@ -153,8 +156,13 @@
   .when { color: var(--muted); font-size: 0.78rem; }
   .text { margin-top: 2px; }
   .actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .icon-btn-sm {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); border: none; color: var(--muted-lt);
+    border-radius: 8px; width: 30px; height: 30px; flex-shrink: 0;
+  }
+  .icon-btn-sm.danger { color: var(--accent-dim); }
   .input, .textarea { margin-bottom: 8px; }
   .question { color: var(--accent-dim); font-size: 0.88rem; }
-  .error { color: var(--accent-dim); font-size: 0.85rem; }
   .sheet-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 </style>
