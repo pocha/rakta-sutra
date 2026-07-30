@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import * as db from '../lib/db.js';
   import { parseReminderText } from '../lib/textParse.js';
-  import { scheduleReminder, cancelReminder } from '../lib/notifications.js';
+  import { scheduleReminder, cancelReminder, getNotificationPermissionState } from '../lib/notifications.js';
   import { showToast } from '../lib/toast.svelte.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
@@ -10,6 +10,7 @@
   let { profileId } = $props();
 
   let reminders = $state([]);
+  let permissionBlocked = $state(false);
 
   let modalOpen = $state(false);
   let editingId = $state(null);
@@ -17,10 +18,17 @@
   let clarifyQuestion = $state('');
   let clarifyAnswer = $state('');
 
-  onMount(load);
+  onMount(async () => {
+    await load();
+    await refreshPermission();
+  });
 
   async function load() {
     reminders = await db.listReminders(profileId);
+  }
+
+  async function refreshPermission() {
+    permissionBlocked = (await getNotificationPermissionState()) === 'denied';
   }
 
   const upcoming = $derived(
@@ -33,6 +41,7 @@
   );
 
   function openModal(reminder = null) {
+    if (permissionBlocked) return;
     editingId = reminder?.id ?? null;
     text = reminder?.text ?? '';
     clarifyQuestion = '';
@@ -66,6 +75,7 @@
     }
     modalOpen = false;
     await load();
+    await refreshPermission();
   }
 
   async function remove(reminder) {
@@ -85,6 +95,13 @@
 </script>
 
 <div class="reminder-tab">
+  {#if permissionBlocked}
+    <div class="permission-banner">
+      Notifications are turned off, so reminders can't be delivered. Enable
+      notification permission for Track Blood in your device settings to add
+      or receive reminders.
+    </div>
+  {/if}
   <div class="feed">
     <h3>Upcoming</h3>
     {#if !upcoming.length}<p class="empty">No upcoming reminders.</p>{/if}
@@ -120,7 +137,9 @@
     {/each}
   </div>
 
-  <Fab icon="alarm-clock" onclick={() => openModal()} />
+  {#if !permissionBlocked}
+    <Fab icon="alarm-clock" onclick={() => openModal()} />
+  {/if}
 
   {#if modalOpen}
     <div class="overlay" role="button" tabindex="0" onclick={() => (modalOpen = false)}
@@ -145,6 +164,10 @@
 
 <style>
   .reminder-tab { height: 100%; min-height: 0; display: flex; flex-direction: column; position: relative; }
+  .permission-banner {
+    background: var(--accent-soft); color: var(--accent-dim);
+    font-size: 0.85rem; padding: 10px 16px; flex-shrink: 0;
+  }
   .feed { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 16px 80px; }
   h3 { color: var(--accent-dim); font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 4px 8px; }
   .empty { color: var(--muted); padding: 0 4px; }

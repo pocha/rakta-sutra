@@ -2,3 +2,6 @@
 node_modules/
 package-lock.json
 track-blood-firebase-adminsdk-fbsvc-745c2fec63.json
+.agents/
+.claude/
+skills-lock.json

@@ -1,0 +1,11 @@
+rules_version='2'
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The app never talks to Firestore directly — only Cloud Functions (via
+    // the Admin SDK, which bypasses these rules) read/write reminder state.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

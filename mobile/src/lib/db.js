@@ -63,6 +63,11 @@ const SCHEMA = `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS device_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_reports_profile ON reports(profile_id, report_date);
   CREATE INDEX IF NOT EXISTS idx_markers_canonical ON markers(canonical);
   CREATE INDEX IF NOT EXISTS idx_journal_profile ON journal_entries(profile_id, entry_date);
@@ -409,6 +414,24 @@ export async function listReminders(profileId) {
     'SELECT * FROM reminders WHERE profile_id = ? ORDER BY remind_at',
     [profileId]
   )).values;
+}
+
+export async function getReminderById(id) {
+  const rows = (await db.query('SELECT * FROM reminders WHERE id = ?', [id])).values;
+  return rows[0] ?? null;
+}
+
+// ── Device settings ──────────────────────────────────────────────────────────
+// A tiny key/value table for device-scoped settings that aren't tied to any
+// profile — currently just the stable deviceId used to register this
+// install with the reminder-push backend.
+export async function getOrCreateDeviceId() {
+  const rows = (await db.query('SELECT value FROM device_settings WHERE key = ?', ['deviceId'])).values;
+  if (rows[0]) return rows[0].value;
+  const deviceId = crypto.randomUUID();
+  await db.run('INSERT INTO device_settings (key, value) VALUES (?, ?)', ['deviceId', deviceId]);
+  await persist();
+  return deviceId;
 }
 
 // ── Backup / restore ─────────────────────────────────────────────────────────

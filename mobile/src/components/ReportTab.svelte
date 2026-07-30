@@ -7,6 +7,7 @@
   import { appState } from '../lib/state.svelte.js';
   import { showToast } from '../lib/toast.svelte.js';
   import { truncationCheck } from '../lib/actions.js';
+  import { logAnalyticsEvent } from '../lib/analytics.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
 
@@ -155,6 +156,7 @@
         }
         const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
         lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted);
+        await logAnalyticsEvent('report_imported');
       }
       statusMsg = '';
       await refresh();

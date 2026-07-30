@@ -2,10 +2,12 @@ import { mount } from 'svelte';
 import './theme.css';
 import App from './App.svelte';
 import { initDb } from './lib/db.js';
+import { initPush } from './lib/push.js';
 
 initDb()
   .then(() => {
     mount(App, { target: document.getElementById('app') });
+    initPush().catch((err) => console.error('[main] initPush failed:', err));
   })
   .catch((err) => {
     console.error('[main] initDb failed:', err);
