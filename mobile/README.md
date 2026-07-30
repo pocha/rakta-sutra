@@ -60,6 +60,23 @@ To just sync changes without opening Android Studio:
 npm run cap:sync
 ```
 
+To deploy straight to a connected device/emulator without opening Android
+Studio (the Capacitor equivalent of `flutter run`):
+
+```bash
+npx cap run android
+```
+
+Requires JDK 21 on `JAVA_HOME` — `source .env` first (see "Releasing" below)
+if the shell's default `java` is older.
+
+**Viewing logs** (the equivalent of `flutter logs`) — the app's JS
+`console.log` output plus any Java crash output:
+
+```bash
+adb logcat -s "Capacitor/Console:V" chromium:V AndroidRuntime:E
+```
+
 ## Run on iOS
 
 ```bash
