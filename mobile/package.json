@@ -25,6 +25,7 @@
     "@capacitor/share": "^8.0.1",
     "@capawesome/capacitor-file-picker": "^8.0.3",
     "chrono-node": "^2.10.1",
+    "html2canvas": "^1.4.1",
     "jeep-sqlite": "^2.8.0",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",

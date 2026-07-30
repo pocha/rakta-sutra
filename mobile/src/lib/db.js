@@ -333,6 +333,41 @@ export async function getConsolidatedMatrix(profileId) {
   return { dates, markers, refRanges };
 }
 
+// Consolidated table data for the Report tab: one row per marker ever seen
+// for this profile (static), with each report's value keyed by report id so
+// the UI can swap which report's values are shown without re-querying —
+// only the "value" column swipes between reports, marker/range stay put.
+export async function getConsolidatedReportData(profileId) {
+  const reports = (await db.query(
+    `SELECT id, report_date as date, file_name, file_path FROM reports WHERE profile_id = ? ORDER BY report_date DESC`,
+    [profileId]
+  )).values;
+
+  const markerRows = (await db.query(
+    `SELECT m.report_id, m.canonical, m.value, m.ref_range
+     FROM markers m JOIN reports r ON r.id = m.report_id
+     WHERE r.profile_id = ?`,
+    [profileId]
+  )).values;
+
+  const reportDateById = Object.fromEntries(reports.map(r => [r.id, r.date]));
+  const valuesByCanonical = {};
+  const refRangeWithDate = {};
+  for (const row of markerRows) {
+    (valuesByCanonical[row.canonical] ??= {})[row.report_id] = row.value;
+    const rowDate = reportDateById[row.report_id];
+    const existing = refRangeWithDate[row.canonical];
+    if (row.ref_range && (!existing || rowDate > existing.date)) {
+      refRangeWithDate[row.canonical] = { range: row.ref_range, date: rowDate };
+    }
+  }
+  const refRangeByCanonical = Object.fromEntries(
+    Object.entries(refRangeWithDate).map(([k, v]) => [k, v.range])
+  );
+
+  return { reports, valuesByCanonical, refRangeByCanonical };
+}
+
 export async function listKnownMarkers(profileId) {
   return (await db.query(
     `SELECT DISTINCT m.canonical FROM markers m JOIN reports r ON r.id = m.report_id
