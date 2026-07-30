@@ -16,12 +16,12 @@ error()   { echo -e "${RED}[deploy]${NC} $*"; exit 1; }
 # ─── Paths ────────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # mobile/
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"                    # raktra-sutra/
-RELEASES_DIR="$REPO_ROOT/releases"                            # served by GitHub Pages
 DIST_DIR="$SCRIPT_DIR/dist-releases"
 VERSION_FILE="$DIST_DIR/.last_version"   # local-only guard, same as agoriya's
 KEYSTORE_PROPS="$SCRIPT_DIR/android/keystore.properties"
 EXPORT_PLIST="$SCRIPT_DIR/ios/App/ExportOptions.plist"
 APP_NAME="track-blood"
+STORAGE_BUCKET="track-blood.firebasestorage.app"   # same pattern as agoriya/deploy.sh
 
 cd "$SCRIPT_DIR"
 
@@ -46,7 +46,7 @@ BUILD_NUMBER=$((VER_MAJOR * 1000000 + VER_MINOR * 1000 + VER_PATCH))
 
 info "Current version: $APP_VERSION (build $BUILD_NUMBER)"
 
-mkdir -p "$DIST_DIR" "$RELEASES_DIR"
+mkdir -p "$DIST_DIR"
 
 # ─── Parse build args ─────────────────────────────────────────────────────────
 BUILD_IOS=true
@@ -144,18 +144,50 @@ EOF
   cp "$APK_SRC" "$APK_DEST"
   success "APK → $APK_DEST"
 
-  # ── Publish into the repo's releases/ folder (served by GitHub Pages) ──────
-  cp "$APK_DEST" "$RELEASES_DIR/$APP_NAME-$APP_VERSION.apk"
-  cp "$APK_DEST" "$RELEASES_DIR/latest.apk"
-  success "Copied into releases/ — index.html's Android button always points at releases/latest.apk"
+  # ── Upload APK to Firebase Storage (same pattern as agoriya/deploy.sh) ─────
+  # Every version gets its own permanent object (releases/track-blood-X.Y.Z.apk)
+  # plus a releases/latest.apk that always points at the newest build.
+  if command -v gcloud &>/dev/null; then
+    gcloud config set project track-blood >/dev/null
 
-  # GitHub Pages doesn't let us set Cache-Control on individual files, so bust
-  # the browser cache the same way agoriya does: a ?v= query param on the
-  # download link that changes every release (same pattern, no cloud storage
-  # needed — the APK itself just lives in releases/ in this repo).
-  info "Updating index.html's Android download link to v$APP_VERSION..."
-  perl -i -pe "s|(releases/latest\.apk)(?:\?v=[^\"']*)?|\${1}?v=$APP_VERSION|g" \
-    "$REPO_ROOT/index.html"
+    info "Uploading APK to Firebase Storage..."
+    gcloud storage cp "$APK_DEST" \
+      "gs://$STORAGE_BUCKET/releases/$APP_NAME-$APP_VERSION.apk"
+    gcloud storage cp "$APK_DEST" \
+      "gs://$STORAGE_BUCKET/releases/latest.apk"
+
+    # Make both objects publicly readable.
+    # Requires uniform bucket-level access to be OFF (fine-grained ACLs).
+    # If your bucket uses uniform access, set a Storage Rule instead:
+    #   match /releases/{file} { allow read; }
+    gcloud storage objects update \
+      "gs://$STORAGE_BUCKET/releases/$APP_NAME-$APP_VERSION.apk" \
+      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
+      || warn "Could not set ACL — ensure Firebase Storage rules allow public reads for /releases/."
+    gcloud storage objects update \
+      "gs://$STORAGE_BUCKET/releases/latest.apk" \
+      --add-acl-grant=entity=allUsers,role=READER 2>/dev/null \
+      || warn "Could not set ACL on latest.apk — check Storage rules."
+
+    # Disable caching on both objects so browsers/CDNs always fetch the newest
+    # build — the ?v= query param on the download link (below) is the primary
+    # cache-buster, this is a second line of defense.
+    gcloud storage objects update \
+      "gs://$STORAGE_BUCKET/releases/$APP_NAME-$APP_VERSION.apk" \
+      "gs://$STORAGE_BUCKET/releases/latest.apk" \
+      --cache-control="no-cache,max-age=0" 2>/dev/null \
+      || warn "Could not set Cache-Control headers — downloads may be cached by browsers."
+
+    APK_PUBLIC_URL="https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media&v=$APP_VERSION"
+    success "APK uploaded → gs://$STORAGE_BUCKET/releases/latest.apk"
+    success "Public URL: $APK_PUBLIC_URL"
+
+    info "Updating index.html's Android download link to v$APP_VERSION..."
+    perl -i -pe "s|https://firebasestorage\.googleapis\.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest\.apk\?alt=media(?:&v=[^\"']*)?|https://firebasestorage.googleapis.com/v0/b/$STORAGE_BUCKET/o/releases%2Flatest.apk?alt=media&v=$APP_VERSION|g" \
+      "$REPO_ROOT/index.html"
+  else
+    warn "gcloud not found — skipping Firebase Storage upload. Install the Google Cloud SDK to publish releases."
+  fi
 fi
 
 # ─── iOS — release IPA ────────────────────────────────────────────────────────
@@ -243,19 +275,20 @@ if [[ "$UPLOAD_IOS" == true ]]; then
   success "Upload complete — check TestFlight in App Store Connect for processing status."
 fi
 
-# ─── Commit + push releases/ + index.html so GitHub Pages serves the new APK ─
+# ─── Commit + push index.html so the site's download link points at the ─────
+# ─── new Firebase Storage object (the APK itself lives in the bucket now) ────
 if [[ "$COMMIT_RELEASE" == true && -n "$APK_DEST" ]]; then
-  if [[ -z "$(git -C "$REPO_ROOT" status --porcelain -- releases index.html)" ]]; then
-    warn "releases/ and index.html already up to date — skipping commit."
+  if [[ -z "$(git -C "$REPO_ROOT" status --porcelain -- index.html)" ]]; then
+    warn "index.html already up to date — skipping commit."
   else
-    git -C "$REPO_ROOT" add releases/ index.html
+    git -C "$REPO_ROOT" add index.html
     git -C "$REPO_ROOT" commit -m "chore: publish track-blood v$APP_VERSION APK"
     if ! git -C "$REPO_ROOT" push; then
       CURRENT_BRANCH="$(git -C "$REPO_ROOT" branch --show-current)"
       warn "git push failed — if this branch has no upstream yet, run:"
       warn "  git push --set-upstream origin $CURRENT_BRANCH"
     else
-      success "Pushed — GitHub Pages will serve v$APP_VERSION at releases/latest.apk"
+      success "Pushed — the site's Android button now points at v$APP_VERSION"
     fi
   fi
 fi
@@ -266,7 +299,7 @@ echo "$APP_VERSION" > "$VERSION_FILE"
 success "────────────────────────────────────────"
 success "Build complete — version $APP_VERSION"
 [[ -n "$APK_DEST" ]] && success "  APK: $APK_DEST"
-[[ -n "$APK_DEST" ]] && success "  Hosted: $RELEASES_DIR/latest.apk"
+[[ -n "$APK_DEST" ]] && success "  Hosted: gs://$STORAGE_BUCKET/releases/latest.apk"
 [[ -n "$IPA_DEST" ]] && success "  IPA: $IPA_DEST"
 [[ "$UPLOAD_IOS" == true ]] && success "  Uploaded to TestFlight ✓"
 success "────────────────────────────────────────"
