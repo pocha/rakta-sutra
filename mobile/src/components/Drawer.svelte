@@ -25,6 +25,7 @@
   <nav class="drawer" role="presentation" onclick={e => e.stopPropagation()} onkeydown={e => e.stopPropagation()}>
     <div class="drawer-header">
       <span class="app-name">Track Blood</span>
+      <span class="app-version">v{__APP_VERSION__}</span>
     </div>
 
     <div class="section">
@@ -84,8 +85,9 @@
     from { transform: translateX(-16px); opacity: 0.6; }
     to { transform: translateX(0); opacity: 1; }
   }
-  .drawer-header { padding: 0 20px 16px; }
+  .drawer-header { padding: 0 20px 16px; display: flex; align-items: baseline; gap: 6px; }
   .app-name { font-size: 1.15rem; font-weight: 700; }
+  .app-version { font-size: 0.78rem; color: var(--muted); }
   .section { padding: 4px 12px; }
   .section-label {
     display: block;
