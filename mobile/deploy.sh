@@ -168,14 +168,14 @@ if [[ "$BUILD_IOS" == true ]]; then
     ARCHIVE_PATH="$SCRIPT_DIR/ios/build/App.xcarchive"
     mkdir -p "$(dirname "$ARCHIVE_PATH")"
 
-    xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release \
+    xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
       -archivePath "$ARCHIVE_PATH" -destination 'generic/platform=iOS' \
       -allowProvisioningUpdates archive \
       MARKETING_VERSION="$APP_VERSION" CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
       2>&1 | grep -E "(error:|warning:|Archive)" || true
 
     if [[ ! -d "$ARCHIVE_PATH" ]]; then
-      error "Archive not found. Open ios/App/App.xcworkspace once in Xcode to set your signing Team, then retry."
+      error "Archive not found. Open ios/App/App.xcodeproj once in Xcode to set your signing Team, then retry."
     fi
 
     if [[ ! -f "$EXPORT_PLIST" ]]; then
