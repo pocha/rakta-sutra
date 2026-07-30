@@ -1,0 +1,20 @@
+dist/
+dist-releases/
+www/
+.DS_Store
+.env
+
+# Release signing key config — see deploy.sh / .env.example
+android/keystore.properties
+
+# Android build output (native project itself is committed)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+
+# iOS build output / CocoaPods (native project itself is committed)
+ios/App/Pods/
+ios/App/build/
+ios/App/DerivedData/
