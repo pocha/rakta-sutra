@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1006085208426",
+    "project_id": "track-blood",
+    "storage_bucket": "track-blood.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1006085208426:android:109ddb4419955e6deccd13",
+        "android_client_info": {
+          "package_name": "fyi.pocha.trackblood"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAouxW_ldM4dV3MpFKniwelmr2P6cUJ9RY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -13,7 +13,8 @@ keyword-matching logic, same marker list, no server, no network calls.
 
 - Node.js 18+ and npm
 - **For Android**: Android Studio (with an SDK + emulator or a physical device)
-- **For iOS**: a Mac with Xcode and CocoaPods (`sudo gem install cocoapods`)
+- **For iOS**: a Mac with Xcode (dependencies are managed via Swift Package
+  Manager — no CocoaPods needed)
 
 ## Install
 
@@ -65,14 +66,11 @@ npm run cap:sync
 npm run cap:ios
 ```
 
-This builds the web app, copies it into the native project, and opens Xcode.
-From there, select a simulator or a connected device and hit Run ▶.
-
-The first time, Xcode may need CocoaPods installed for the project:
-
-```bash
-cd ios/App && pod install && cd ../..
-```
+This builds the web app, copies it into the native project, and opens Xcode
+(`App.xcodeproj` — there's no `.xcworkspace`, since dependencies are managed
+via Swift Package Manager, not CocoaPods). Xcode resolves the SPM packages
+automatically on first open. From there, select a simulator or a connected
+device and hit Run ▶.
 
 ## Releasing (APK + TestFlight)
 
@@ -100,9 +98,9 @@ same App Store Connect API key convention.
 2. **App Store Connect API key** — reuse an existing one from your Apple
    Developer account if you have it (these keys aren't per-app), but you'll
    need a **new app entry** in App Store Connect for this bundle ID
-   (`org.trackblood.app`) before you can upload to it. Copy `.env.example` to
-   `.env` and fill in your key details.
-3. Open `ios/App/App.xcworkspace` in Xcode once to set your signing Team —
+   (`fyi.pocha.trackblood`) before you can upload to it. Copy `.env.example`
+   to `.env` and fill in your key details.
+3. Open `ios/App/App.xcodeproj` in Xcode once to set your signing Team —
    `xcodebuild` needs that configured before it can archive.
 
 **Usage:**
