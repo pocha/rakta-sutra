@@ -26,7 +26,23 @@ if (typeof ReadableStream !== 'undefined' && !ReadableStream.prototype[Symbol.as
   };
 }
 
-Promise.all([initDb(), initParserConfig()])
+// initDb() has no internal timeout (unlike initParserConfig(), which already
+// bounds its own fetch) — if the native SQLite bridge ever hangs instead of
+// resolving/rejecting, Promise.all below would wait forever, mount() would
+// never run, and the app would show a permanent, silent blank screen. Race
+// it against a timeout so a hang surfaces as the same "Failed to start"
+// error screen a real rejection would.
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+Promise.all([withTimeout(initDb(), 10000, 'initDb'), initParserConfig()])
   .then(() => {
     mount(App, { target: document.getElementById('app') });
     initPush().catch((err) => console.error('[main] initPush failed:', err));

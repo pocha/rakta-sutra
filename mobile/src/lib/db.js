@@ -1,7 +1,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Local SQLite layer — single source of truth for everything except the raw
 // PDF files themselves (those live in Filesystem, see reports.js).
-// Encrypted at rest (see capacitor.config.json: iosIsEncryption/androidIsEncryption).
+// Not encrypted — createConnection always opens in 'no-encryption' mode, and
+// no secret is ever set, so iosIsEncryption/androidIsEncryption in
+// capacitor.config.json are both false to match (a mismatch there makes the
+// plugin try to touch iOS Keychain / Android MasterKey it isn't set up for).
 // No ORM — five tables, hand-written queries, kept deliberately small.
 // ─────────────────────────────────────────────────────────────────────────────
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
