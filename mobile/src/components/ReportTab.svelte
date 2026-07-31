@@ -175,7 +175,12 @@
     } catch (err) {
       statusMsg = '';
       showToast('Upload failed: ' + err.message, 'error');
-      console.error(err);
+      // Capacitor's native console bridge JSON-serializes console.error args,
+      // and Error objects serialize to "{}" (message/stack aren't enumerable
+      // own properties) — log them as plain strings so they actually show up
+      // in the native device console.
+      console.error('[pickAndUpload] failed:', err.message);
+      console.error('[pickAndUpload] stack:', err.stack);
     } finally {
       busy = false;
     }
