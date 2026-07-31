@@ -1,0 +1,715 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Blood report parsing engine — the single source of truth for both the web
+// app (app.js) and the mobile app (mobile/src/lib/parser.js, a thin wrapper
+// around this file). Pure functions only: no DOM, no framework, no assumed
+// PDF.js loading strategy — pdfjsLib is passed in by the caller so each
+// platform can keep its own worker setup (CDN for the web, bundled for mobile).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Physiological bounds — values outside these are rejected (clinical notes, name tokens)
+// ─────────────────────────────────────────────────────────────────────────────
+const VALUE_LIMITS = {
+  'Hemoglobin':[3,25],'Hematocrit':[10,70],'RBC Count':[1,8],
+  'Mean Corpuscular Volume':[50,130],'Mean Corpuscular Hemoglobin':[10,50],
+  'Mean Corpuscular Hemoglobin Concentration':[20,45],
+  'White Blood Cell Count':[500,100000],'Platelet Count':[10000,2000000],
+  'Neutrophils %':[1,100],'Lymphocytes %':[1,100],
+  'Monocytes %':[0,30],'Eosinophils %':[0,60],'Basophils %':[0,10],
+  'Neutrophils Absolute':[100,20000],'Lymphocytes Absolute':[50,10000],
+  'Monocytes Absolute':[10,3000],'Eosinophils Absolute':[0,2000],'Basophils Absolute':[0,500],
+  'Mean Platelet Volume':[3,20],'Neutrophil Lymphocyte Ratio':[0.1,30],
+  'Total Cholesterol':[50,600],'HDL Cholesterol':[10,150],'LDL Cholesterol':[10,500],
+  'VLDL Cholesterol':[5,100],'Triglycerides':[20,3000],
+  'AST (Aspartate Aminotransferase)':[3,5000],'ALT (Alanine Transaminase)':[2,5000],
+  'AST/ALT Ratio':[0.1,15],'Alkaline Phosphatase':[10,3000],
+  'Gamma-Glutamyl Transferase':[2,3000],
+  'Bilirubin Total':[0.1,50],'Bilirubin Direct':[0.01,30],'Bilirubin Indirect':[0.01,30],
+  'Total Protein':[2,12],'Albumin':[1,8],'Globulin':[0.5,8],'Albumin/Globulin Ratio':[0.1,5],
+  'Creatinine':[0.2,20],'Blood Urea Nitrogen':[1,200],'Urea':[3,400],
+  'Uric Acid':[1,20],'Calcium':[4,15],'Glomerular Filtration Rate (eGFR)':[1,200],
+  'Blood Urea Nitrogen/Creatinine Ratio':[1,100],'Urea/Creatinine Ratio':[10,70],
+  'Thyroid Stimulating Hormone':[0.001,100],
+  'Triiodothyronine (T3) Total':[0.1,10],'Thyroxine (T4) Total':[0.5,30],
+  'Vitamin D':[1,200],'Vitamin B12':[50,5000],'Vitamin B9':[0.5,80],
+  'Fasting Glucose':[30,700],'Glycated Hemoglobin (HbA1c)':[3,20],'Average Blood Glucose':[40,600],
+  'Serum Iron':[5,400],'Total Iron Binding Capacity':[50,800],
+  'Unsaturated Iron Binding Capacity':[30,600],'Transferrin Saturation':[1,100],'Ferritin':[1,10000],
+  'Sodium':[100,180],'Potassium':[1.5,9],'Chloride':[70,130],'Magnesium':[0.5,5],'Phosphorus':[0.5,10],
+  'High Sensitivity CRP':[0.01,300],'Homocysteine':[0.5,200],
+  'Apolipoprotein B':[10,300],'Apolipoprotein A1':[30,300],'Apolipoprotein B/A1 Ratio':[0.1,5],
+  'Cancer Antigen 125':[0.1,5000],'Carbohydrate Antigen 19-9':[0.1,5000],
+  'Carcinoembryonic Antigen':[0.1,1000],
+  'Immunoglobulin E':[1,50000],'Rheumatoid Factor':[1,500],
+  'Erythrocyte Sedimentation Rate':[0,200],'Neutrophil Lymphocyte Ratio':[0.1,30],
+};
+
+function inValueRange(canonical, v) {
+  const lim = VALUE_LIMITS[canonical];
+  if (!lim) return true;
+  return v >= lim[0] && v <= lim[1];
+}
+
+function unitScale(units) {
+  if (!units) return 1;
+  const u = units.replace(/\s/g, '');
+  if (/10[⁶6]/.test(u)) return 1_000_000;
+  if (/10[³3]/.test(u) || /10\^3/.test(u)) return 1000;
+  return 1;
+}
+
+function scaleRef(ref, scale) {
+  if (!ref || scale === 1) return ref;
+  // Scale a "lo-hi" range string: "150-410" → "150000-410000"
+  return ref.replace(/(\d+\.?\d*)/g, n => String(parseFloat(n) * scale));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reference ranges (hardcoded fallback)
+// ─────────────────────────────────────────────────────────────────────────────
+export const REF_RANGES = {
+  'Hemoglobin':'13.0-17.0 g/dL','Hematocrit':'40-50 %','RBC Count':'4.5-5.5 x10^6/uL',
+  'Mean Corpuscular Volume':'83-101 fL','Mean Corpuscular Hemoglobin':'27-32 pg',
+  'Mean Corpuscular Hemoglobin Concentration':'31.5-34.5 g/dL',
+  'Red Cell Distribution Width-CV':'11.6-14 %','Red Cell Distribution Width-SD':'39-46 fL',
+  'White Blood Cell Count':'4.0-10.0 x10^3/uL',
+  'Neutrophils %':'40-80 %','Neutrophils Absolute':'2.0-7.0 x10^3/uL',
+  'Lymphocytes %':'20-40 %','Lymphocytes Absolute':'1.0-3.0 x10^3/uL',
+  'Monocytes %':'2-10 %','Monocytes Absolute':'0.2-1.0 x10^3/uL',
+  'Eosinophils %':'1-6 %','Eosinophils Absolute':'0.02-0.5 x10^3/uL',
+  'Basophils %':'0-2 %','Basophils Absolute':'0.02-0.1 x10^3/uL',
+  'Platelet Count':'150000-410000 cells/μL','Mean Platelet Volume':'6.5-12 fL',
+  'Platelet Distribution Width':'9.6-15.2 fL','Plateletcrit':'0.19-0.39 %',
+  'Platelet Large Cell Ratio':'19.7-42.4 %',
+  'Total Cholesterol':'< 200 mg/dL','HDL Cholesterol':'40-60 mg/dL',
+  'LDL Cholesterol':'< 100 mg/dL','VLDL Cholesterol':'5-40 mg/dL',
+  'Triglycerides':'< 150 mg/dL',
+  'AST (Aspartate Aminotransferase)':'< 35 U/L','ALT (Alanine Transaminase)':'< 45 U/L',
+  'AST/ALT Ratio':'< 2','Alkaline Phosphatase':'45-129 U/L',
+  'Gamma-Glutamyl Transferase':'< 55 U/L','Bilirubin Total':'0.3-1.2 mg/dL',
+  'Bilirubin Direct':'< 0.20 mg/dL','Bilirubin Indirect':'0-0.9 mg/dL',
+  'Total Protein':'5.7-8.2 g/dL','Albumin':'3.2-4.8 g/dL','Globulin':'2.5-3.4 g/dL',
+  'Albumin/Globulin Ratio':'0.9-2',
+  'Creatinine':'0.72-1.18 mg/dL','Blood Urea Nitrogen':'7.94-20.07 mg/dL',
+  'Urea':'17-43 mg/dL','Uric Acid':'4.2-7.3 mg/dL','Calcium':'8.8-10.6 mg/dL',
+  'Glomerular Filtration Rate (eGFR)':'>= 90 mL/min/1.73m2',
+  'Blood Urea Nitrogen/Creatinine Ratio':'9-23','Urea/Creatinine Ratio':'< 52',
+  'Thyroid Stimulating Hormone':'0.35-4.94 uIU/mL',
+  'Triiodothyronine (T3) Total':'0.6-1.81 ng/mL','Thyroxine (T4) Total':'4.5-12.5 ug/dL',
+  'Vitamin D':'30-100 ng/mL','Vitamin B12':'211-911 pg/mL',
+  'Vitamin B9':'3.96-16.76 ng/mL',
+  'Fasting Glucose':'70-100 mg/dL','Glycated Hemoglobin (HbA1c)':'< 5.7 %',
+  'Average Blood Glucose':'90-120 mg/dL',
+  'Serum Iron':'65-175 ug/dL','Total Iron Binding Capacity':'225-535 ug/dL',
+  'Unsaturated Iron Binding Capacity':'162-368 ug/dL','Transferrin Saturation':'13-45 %',
+  'Ferritin':'12-300 ng/mL',
+  'Sodium':'137-145 mmol/L','Potassium':'3.5-5.5 mmol/L','Chloride':'98-107 mmol/L',
+  'Magnesium':'1.6-2.3 mg/dL','Phosphorus':'2.5-4.5 mg/dL',
+  'High Sensitivity CRP':'< 1 mg/L','Homocysteine':'4.7-12.6 umol/L',
+  'Apolipoprotein B':'60-140 mg/dL','Apolipoprotein A1':'105-175 mg/dL',
+  'Apolipoprotein B/A1 Ratio':'0.35-0.98',
+  'Cancer Antigen 125':'< 35 U/mL','Carbohydrate Antigen 19-9':'< 37 U/mL',
+  'Carcinoembryonic Antigen':'< 4 ng/mL',
+  'Immunoglobulin E':'< 100 IU/mL','Rheumatoid Factor':'< 14 IU/mL',
+  'Erythrocyte Sedimentation Rate':'0-20 mm/h','Neutrophil Lymphocyte Ratio':'1-3',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marker groups — drives table sections and CSV grouping
+// ─────────────────────────────────────────────────────────────────────────────
+export const MARKER_GROUPS = [
+  { label: 'CBC', keys: ['Hemoglobin','Hematocrit','RBC Count','Mean Corpuscular Volume','Mean Corpuscular Hemoglobin','Mean Corpuscular Hemoglobin Concentration','Red Cell Distribution Width-CV','Red Cell Distribution Width-SD','White Blood Cell Count','Neutrophils %','Neutrophils Absolute','Lymphocytes %','Lymphocytes Absolute','Monocytes %','Monocytes Absolute','Eosinophils %','Eosinophils Absolute','Basophils %','Basophils Absolute','Platelet Count','Mean Platelet Volume','Platelet Distribution Width','Plateletcrit','Platelet Large Cell Ratio'] },
+  { label: 'Lipid', keys: ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Triglycerides'] },
+  { label: 'Liver (LFT)', keys: ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio','Alkaline Phosphatase','Gamma-Glutamyl Transferase','Bilirubin Total','Bilirubin Direct','Bilirubin Indirect','Total Protein','Albumin','Globulin','Albumin/Globulin Ratio'] },
+  { label: 'Kidney (KFT)', keys: ['Creatinine','Blood Urea Nitrogen','Urea','Uric Acid','Calcium','Glomerular Filtration Rate (eGFR)','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio'] },
+  { label: 'Thyroid', keys: ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total'] },
+  { label: 'Vitamins', keys: ['Vitamin D','Vitamin B12','Vitamin B9'] },
+  { label: 'Blood Sugar', keys: ['Fasting Glucose','Glycated Hemoglobin (HbA1c)','Average Blood Glucose'] },
+  { label: 'Iron Studies', keys: ['Serum Iron','Total Iron Binding Capacity','Unsaturated Iron Binding Capacity','Transferrin Saturation','Ferritin'] },
+  { label: 'Electrolytes', keys: ['Sodium','Potassium','Chloride','Magnesium','Phosphorus'] },
+  { label: 'Cardiac', keys: ['High Sensitivity CRP','Homocysteine','Apolipoprotein B','Apolipoprotein A1','Apolipoprotein B/A1 Ratio'] },
+  { label: 'Tumour Markers', keys: ['Cancer Antigen 125','Carbohydrate Antigen 19-9','Carcinoembryonic Antigen'] },
+  { label: 'Immunology', keys: ['Immunoglobulin E','Rheumatoid Factor'] },
+  { label: 'Other', keys: ['Erythrocyte Sedimentation Rate','Neutrophil Lymphocyte Ratio'] },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyword map — keyword (compact form) → candidate canonical names
+// Rules: nouns only; 3+ char abbreviations (exceptions: T3, T4, TG); no HB/RF
+// ─────────────────────────────────────────────────────────────────────────────
+export const KEYWORD_MAP = {
+  // CBC — cell-type nouns
+  'HEMOGLOBIN':  ['Hemoglobin','Mean Corpuscular Hemoglobin','Mean Corpuscular Hemoglobin Concentration','Glycated Hemoglobin (HbA1c)'],
+  'HEMATOCRIT':  ['Hematocrit'],
+  'LEUCOCYTE':   ['White Blood Cell Count'],
+  'LEUKOCYTE':   ['White Blood Cell Count'],
+  'NEUTROPHIL':  ['Neutrophils %','Neutrophils Absolute','Neutrophil Lymphocyte Ratio'],
+  'LYMPHOCYTE':  ['Lymphocytes %','Lymphocytes Absolute','Neutrophil Lymphocyte Ratio'],
+  'MONOCYTE':    ['Monocytes %','Monocytes Absolute'],
+  'EOSINOPHIL':  ['Eosinophils %','Eosinophils Absolute'],
+  'BASOPHIL':    ['Basophils %','Basophils Absolute'],
+  'PLATELET':    ['Platelet Count','Mean Platelet Volume','Platelet Distribution Width','Plateletcrit','Platelet Large Cell Ratio'],
+  'MPV':         ['Mean Platelet Volume'],
+  'PDW':         ['Platelet Distribution Width'],
+  // CBC descriptor keywords
+  'WHITE':        ['White Blood Cell Count'],
+  'ABSOLUTE':     ['Neutrophils Absolute','Lymphocytes Absolute','Monocytes Absolute','Eosinophils Absolute','Basophils Absolute'],
+  'RATIO':        ['Neutrophil Lymphocyte Ratio','AST/ALT Ratio','Albumin/Globulin Ratio','Blood Urea Nitrogen/Creatinine Ratio','Urea/Creatinine Ratio','Apolipoprotein B/A1 Ratio','Platelet Large Cell Ratio'],
+  'DISTRIBUTION': ['Red Cell Distribution Width-CV','Red Cell Distribution Width-SD','Platelet Distribution Width'],
+  'VOLUME':       ['Mean Corpuscular Volume','Mean Platelet Volume'],
+  'CRIT':         ['Hematocrit','Plateletcrit'],
+  // CBC abbreviations (3+ chars)
+  'WBC':   ['White Blood Cell Count'],
+  'TLC':   ['White Blood Cell Count'],
+  'RBC':   ['RBC Count'],
+  'HGB':   ['Hemoglobin'],
+  'HCT':   ['Hematocrit'],
+  'PCV':   ['Hematocrit'],
+  'MCV':   ['Mean Corpuscular Volume'],
+  'MCHC':  ['Mean Corpuscular Hemoglobin Concentration'],  // before MCH — longer wins
+  'MCH':   ['Mean Corpuscular Hemoglobin'],
+  'RDWCV': ['Red Cell Distribution Width-CV'],
+  'RDWSD': ['Red Cell Distribution Width-SD'],
+  'RDW':   ['Red Cell Distribution Width-CV','Red Cell Distribution Width-SD'],
+  // Absolute count & platelet detail abbreviations removed — covered by noun keywords above,
+  // and 3-char forms (ALC, ANC, AMC, AEC) match as substrings inside unrelated words (CALCULATED, PANCREATIC, etc.)
+  // Lipid — chemical nouns
+  'CHOLESTEROL':    ['Total Cholesterol','HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol'],
+  'TRIGLYCERIDE':   ['Triglycerides'],
+  'LIPOPROTEIN':    ['HDL Cholesterol','LDL Cholesterol','VLDL Cholesterol','Non-HDL Cholesterol','Apolipoprotein B','Apolipoprotein A1','Apolipoprotein B/A1 Ratio'],
+  'APOLIPOPROTEIN': ['Apolipoprotein B','Apolipoprotein A1','Apolipoprotein B/A1 Ratio'],
+  // Lipid abbreviations
+  // LDL is a substring of VLDL, so both get +1 from LDL keyword on any cholesterol line.
+  // Compound keywords break the tie: LDLCHOLESTEROL fires only on LDL lines, VLDLCHOLESTEROL only on VLDL lines.
+  'HDL':            ['HDL Cholesterol'],
+  'LDL':            ['LDL Cholesterol','VLDL Cholesterol'],
+  'LDLCHOLESTEROL':      ['LDL Cholesterol'],
+  'CHOLESTEROLLDL':      ['LDL Cholesterol'],
+  'VLDL':                ['VLDL Cholesterol'],
+  'VLDLCHOLESTEROL':     ['VLDL Cholesterol'],
+  'CHOLESTEROLVLDL':     ['VLDL Cholesterol'],
+  'TG':   ['Triglycerides'],  // 2-char exception
+  // LFT — enzyme/molecule nouns
+  'BILIRUBIN':        ['Bilirubin Total','Bilirubin Direct','Bilirubin Indirect'],
+  'DIRECT':           ['Bilirubin Direct'],
+  'INDIRECT':         ['Bilirubin Indirect'],
+  'AMINOTRANSFERASE': ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio'],
+  'TRANSAMINASE':     ['AST (Aspartate Aminotransferase)','ALT (Alanine Transaminase)','AST/ALT Ratio'],
+  'ALANINE':          ['ALT (Alanine Transaminase)'],
+  'ASPARTATE':        ['AST (Aspartate Aminotransferase)'],
+  'PHOSPHATASE':      ['Alkaline Phosphatase'],
+  'ALBUMIN':          ['Albumin','Albumin/Globulin Ratio'],
+  'GLOBULIN':         ['Globulin','Albumin/Globulin Ratio'],
+  'PROTEIN':          ['Total Protein','Albumin','Globulin','High Sensitivity CRP'],
+  // LFT abbreviations
+  'AST':  ['AST (Aspartate Aminotransferase)','AST/ALT Ratio'],
+  'SGOT': ['AST (Aspartate Aminotransferase)','AST/ALT Ratio'],
+  'ALT':  ['ALT (Alanine Transaminase)','AST/ALT Ratio'],
+  'SGPT': ['ALT (Alanine Transaminase)','AST/ALT Ratio'],
+  'GGT':  ['Gamma-Glutamyl Transferase'],
+  'ALP':  ['Alkaline Phosphatase'],
+  // KFT — chemical nouns
+  'CREATININE':       ['Creatinine','Glomerular Filtration Rate (eGFR)'],
+  'CREATININESERUM':  ['Creatinine'],
+  'SERUMCREATININE':  ['Creatinine'],
+  'UREA':             ['Urea','Blood Urea Nitrogen'],
+  'BLOODUREA':        ['Urea','Blood Urea Nitrogen'],
+  'UREANITROGEN':     ['Blood Urea Nitrogen'],
+  'URIC':       ['Uric Acid'],
+  'URICACID':   ['Uric Acid'],  // compact of "URIC ACID" — catches labs that print full name
+  'CALCIUM':    ['Calcium'],
+  // KFT abbreviations
+  'BUN':  ['Blood Urea Nitrogen','Blood Urea Nitrogen/Creatinine Ratio'],
+  'EGFR':       ['Glomerular Filtration Rate (eGFR)'],
+  'GLOMERULAR': ['Glomerular Filtration Rate (eGFR)'],
+  // Thyroid — chemical nouns
+  'THYROID':          ['Thyroid Stimulating Hormone','Triiodothyronine (T3) Total','Thyroxine (T4) Total'],
+  'THYROXINE':        ['Thyroxine (T4) Total'],
+  'TRIIODOTHYRONINE': ['Triiodothyronine (T3) Total'],
+  // Thyroid abbreviations
+  'TSH': ['Thyroid Stimulating Hormone'],
+  'T3':  ['Triiodothyronine (T3) Total'],  // 2-char exception
+  'T4':  ['Thyroxine (T4) Total'],         // 2-char exception
+  // Vitamins
+  'VITAMIN':    ['Vitamin D','Vitamin B12','Vitamin B9'],
+  'VITAMIND':   ['Vitamin D'],
+  'VITAMINB12': ['Vitamin B12'],
+  'CYANOCOBALAMIN': ['Vitamin B12'],
+  'VITAMINB9':  ['Vitamin B9'],
+  'FOLIC':      ['Vitamin B9'],
+  'FOLICACID':  ['Vitamin B9'],
+  'FOLATE':     ['Vitamin B9'],
+  // Blood Sugar
+  'GLUCOSE': ['Fasting Glucose','Average Blood Glucose'],
+  'HBA1C':   ['Glycated Hemoglobin (HbA1c)'],  // "HbA 1 C", "HB A1C" all compact to HBA1C
+  // Iron Studies — molecule nouns
+  'IRON':        ['Serum Iron','Total Iron Binding Capacity','Unsaturated Iron Binding Capacity','Transferrin Saturation'],
+  'FERRITIN':    ['Ferritin'],
+  'TRANSFERRIN': ['Total Iron Binding Capacity','Transferrin Saturation'],
+  'SATURATION':  ['Transferrin Saturation'],
+  // Iron abbreviations
+  'TIBC': ['Total Iron Binding Capacity'],
+  'UIBC': ['Unsaturated Iron Binding Capacity'],
+  // Electrolytes — element/ion nouns
+  'SODIUM':     ['Sodium'],
+  'POTASSIUM':  ['Potassium'],
+  'CHLORIDE':   ['Chloride'],
+  'MAGNESIUM':  ['Magnesium'],
+  'PHOSPHORUS': ['Phosphorus'],
+  // Cardiac / Immunology / Tumour
+  'HOMOCYSTEINE':     ['Homocysteine'],
+  'IMMUNOGLOBULIN':   ['Immunoglobulin E'],
+  'CARCINOEMBRYONIC': ['Carcinoembryonic Antigen'],
+  'CARBOHYDRATE':     ['Carbohydrate Antigen 19-9'],
+  'CANCER':           ['Cancer Antigen 125'],
+  'ANTIGEN':          ['Cancer Antigen 125','Carbohydrate Antigen 19-9','Carcinoembryonic Antigen'],
+  'ANTIGEN125':       ['Cancer Antigen 125'],
+  'ANTIGEN199':       ['Carbohydrate Antigen 19-9'],
+  'RHEUMATOID':       ['Rheumatoid Factor'],
+  // Abbreviations
+  'ESR':   ['Erythrocyte Sedimentation Rate'],
+  'CRP':   ['High Sensitivity CRP'],
+  'HSCRP': ['High Sensitivity CRP'],
+  'HIGHSENSITIVITYCREACTIVEPROTEIN': ['High Sensitivity CRP'],
+  'CEA':   ['Carcinoembryonic Antigen'],
+  'IGE':   ['Immunoglobulin E'],
+  'CA125': ['Cancer Antigen 125'],
+  'CA199': ['Carbohydrate Antigen 19-9'],
+};
+
+// Sorted longest-first so more-specific keywords win unambiguous single-canonical matches
+const KEYWORD_ENTRIES = Object.entries(KEYWORD_MAP).sort(([a],[b]) => b.length - a.length);
+
+// Reference range hints — auto-built from REF_RANGES for disambiguation
+const REF_RANGE_HINTS = {};
+for (const [k, v] of Object.entries(REF_RANGES)) {
+  const range = v.match(/(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)/);
+  if (range) { REF_RANGE_HINTS[k] = { lo: +range[1], hi: +range[2] }; continue; }
+  const lt = v.match(/^[<≤]\s*(\d+\.?\d*)/);
+  if (lt)  { REF_RANGE_HINTS[k] = { lo: 0, hi: +lt[1] }; continue; }
+  const gt = v.match(/^[>≥]=?\s*(\d+\.?\d*)/);
+  if (gt)  { REF_RANGE_HINTS[k] = { lo: +gt[1], hi: Infinity }; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date extraction
+// ─────────────────────────────────────────────────────────────────────────────
+const MONTH_MAP = {
+  jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+  jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12',
+};
+
+function parseDate(text) {
+  // DD/MM/YYYY or DD-MM-YYYY
+  let m = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+  if (m && parseInt(m[2]) <= 12) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // DD/Mon/YYYY (Tata 1mg: "01/Feb/2026")
+  m = text.match(/\b(\d{1,2})\/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\/(\d{4})\b/i);
+  if (m) return `${m[3]}-${MONTH_MAP[m[2].toLowerCase().slice(0,3)]}-${m[1].padStart(2,'0')}`;
+  // DD MMM[,] YYYY
+  m = text.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[,\s]+(\d{4})\b/i);
+  if (m) return `${m[3]}-${MONTH_MAP[m[2].toLowerCase().slice(0,3)]}-${m[1].padStart(2,'0')}`;
+  return null;
+}
+
+function extractDate(lines) {
+  const textLines = lines.filter(l => !l.pageBreak && l.text);
+  const priority = textLines.filter(l =>
+    /coll|collection|sct|date\s*:/i.test(l.text) && !/released|received|report\s*date/i.test(l.text)
+  );
+  for (const line of [...priority, ...textLines]) {
+    const d = parseDate(line.text);
+    if (d) return d;
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF text extraction — group items into lines by Y coordinate
+// ─────────────────────────────────────────────────────────────────────────────
+function groupIntoLines(items) {
+  const BUCKET = 10;
+  const map = new Map();
+  for (const item of items) {
+    if (!item.str.trim()) continue;
+    const rawY = item.transform[5];
+    const y = Math.round(rawY / BUCKET) * BUCKET;
+    if (!map.has(y)) map.set(y, []);
+    map.get(y).push({ x: item.transform[4], y: rawY, w: item.width ?? 0, text: item.str.trim() });
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([bucketY, items]) => {
+      const sorted = items.sort((a, b) => a.x - b.x);
+      return { bucketY, items: sorted, text: sorted.map(i => i.text).join('  ') };
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Column map detection — finds header row, records X positions
+// ─────────────────────────────────────────────────────────────────────────────
+const COL_PATTERNS = {
+  test:      /\b(test|test\s*name|investigation|parameter)\b/i,
+  value:     /\b(result|results|value|observed\s*value)\b/i,
+  reference: /\b(ref(?:erence)?\.?\s*(?:interval)?|bio\.?\s*ref|biological\s*ref|normal\s*range|b\.r\.i\.?)\b/i,
+  units:     /\bunits?\b/i,
+};
+
+function detectColMap(line) {
+  const colMap = {};
+  for (const item of line.items) {
+    for (const [col, re] of Object.entries(COL_PATTERNS)) {
+      if (!colMap[col] && re.test(item.text)) { colMap[col] = item.x; break; }
+    }
+  }
+  // test and value are mandatory; reference is optional (some pages use TEST NAME | TECHNOLOGY | VALUE | UNITS)
+  if (colMap.test === undefined || colMap.value === undefined) return null;
+  // test must be the leftmost column (x = 0 or smallest among all detected)
+  const allX = Object.values(colMap);
+  if (colMap.test !== Math.min(...allX)) return null;
+  return colMap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compact normalisation — strip everything except A-Z 0-9, normalise AE→E
+// ─────────────────────────────────────────────────────────────────────────────
+function compactNorm(text) {
+  return text.replace(/\x00/g, '').toUpperCase().replace(/AE/g, 'E').replace(/[^A-Z0-9]/g, '');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marker matching — keyword fingerprint on compact line text
+// Returns { canonical, candidates } or null
+// ─────────────────────────────────────────────────────────────────────────────
+export function matchLine(lineText) {
+  const compact = compactNorm(lineText);
+  if (!compact) return null;
+  const scores = {};  // canonical → hit count
+  for (const [kw, canonicals] of KEYWORD_ENTRIES) {
+    if (!compact.includes(kw)) continue;
+    for (const c of canonicals) scores[c] = (scores[c] ?? 0) + 1;
+  }
+  const entries = Object.entries(scores);
+  if (!entries.length) return null;
+  const maxScore = Math.max(...entries.map(([, s]) => s));
+  const winners = entries.filter(([, s]) => s === maxScore).map(([c]) => c);
+  if (winners.length === 1) return { canonical: winners[0], candidates: winners };
+  return { canonical: null, candidates: winners };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Disambiguation — pick best canonical from candidates using PDF ref range
+// ─────────────────────────────────────────────────────────────────────────────
+export function disambiguate(candidates, ref, value = null) {
+  // Primary: use ref range printed on the PDF line (overlap scoring)
+  if (ref) {
+    let refLo, refHi;
+    const rm = ref.match(/(\d+\.?\d*)\s*[-–]\s*(\d+\.?\d*)/);
+    if (rm) { refLo = +rm[1]; refHi = +rm[2]; }
+    const lt = ref.match(/^[<≤]\s*(\d+\.?\d*)/);
+    if (lt)  { refLo = 0; refHi = +lt[1]; }
+    const gt = ref.match(/^[>≥]=?\s*(\d+\.?\d*)/);
+    if (gt)  { refLo = +gt[1]; refHi = Infinity; }
+    if (refLo !== undefined) {
+      let best = null, bestScore = -1;
+      for (const c of candidates) {
+        const h = REF_RANGE_HINTS[c];
+        if (!h) continue;
+        const lo = Math.max(h.lo, refLo);
+        const hi = Math.min(h.hi === Infinity ? refHi * 2 : h.hi, refHi === Infinity ? h.lo * 2 + 1 : refHi);
+        if (lo <= hi && (hi - lo) > bestScore) { bestScore = hi - lo; best = c; }
+      }
+      if (best) return best;
+    }
+  }
+  // Fallback: use the extracted value against pre-defined reference range hints
+  if (value !== null) {
+    const hintMatches = candidates.filter(c => {
+      const h = REF_RANGE_HINTS[c];
+      if (!h) return false;
+      const hi = h.hi === Infinity ? value * 2 + 1 : h.hi;
+      return value >= h.lo && value <= hi;
+    });
+    if (hintMatches.length === 1) return hintMatches[0];
+    // Last resort: VALUE_LIMITS (broader physiological bounds)
+    const limitMatches = candidates.filter(c => {
+      const lim = VALUE_LIMITS[c];
+      return lim && value >= lim[0] && value <= lim[1];
+    });
+    if (limitMatches.length === 1) return limitMatches[0];
+  }
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Value and reference extraction
+// ─────────────────────────────────────────────────────────────────────────────
+const NUM_RE   = /^-?\d+\.?\d*$/;
+const RANGE_RE = /^\d+\.?\d*\s*[-–]\s*\d+\.?\d*$|^[<>≤≥]=?\s*\d+\.?\d*$|^\d+:\d+\s*[-–]\s*\d+:\d+$/;
+
+function extractValueAndRef(lineItems, alias, colMap) {
+  // When alias is provided, find where the marker name ends so we skip name tokens
+  let markerEndX = 0;
+  if (alias) {
+    let accumulated = '';
+    for (const item of lineItems) {
+      accumulated += (accumulated ? '  ' : '') + item.text;
+      if (accumulated.replace(/\s+/g, ' ').toUpperCase().includes(alias)) {
+        markerEndX = item.x + item.w;
+        break;
+      }
+    }
+  }
+  const after = lineItems.filter(i => i.x >= markerEndX - 5);
+  let value = null, ref = null, units = '';
+
+  if (colMap && (colMap.value !== undefined || colMap.reference !== undefined)) {
+    const valCutoff = colMap.value !== undefined ? colMap.value - 20 : 0;
+    for (const item of after) {
+      const t = item.text.trim();
+      if (value === null && colMap.value !== undefined && item.x >= valCutoff && Math.abs(item.x - colMap.value) < 70) {
+        const n = parseFloat(t.replace(/,/g, ''));
+        if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
+      }
+      if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < 90) {
+        if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
+      }
+      if (!units && colMap.units !== undefined && Math.abs(item.x - colMap.units) < 70) {
+        if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units = t;
+      }
+    }
+    // Null-byte ref reconstruction (Orange): two separate numeric items near reference column
+    if (ref === null && colMap.reference !== undefined) {
+      const refNums = after
+        .filter(it => Math.abs(it.x - colMap.reference) < 90)
+        .map(it => it.text.replace(/\x00/g, '').trim())
+        .filter(t => /^\d+\.?\d*$/.test(t));
+      if (refNums.length >= 2) ref = refNums[0] + '-' + refNums[1];
+    }
+  } else {
+    // No colMap: scan linearly for first number and first range (no colMap = no position anchor)
+    for (const item of after) {
+      const t = item.text.trim().replace(/,/g, '');
+      if (NUM_RE.test(t)) { value = parseFloat(t); break; }
+    }
+    for (const item of after) {
+      const t = item.text.trim();
+      if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) { ref = t; break; }
+    }
+  }
+  return { value, ref, units };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Look-ahead value — scan next 1-2 lines for a value in VALUE_LIMITS range
+// Only stops early if the next line is an *unextracted* marker
+// ─────────────────────────────────────────────────────────────────────────────
+function lookAheadValue(allLines, i, canonical, colMap, extracted) {
+  for (let j = i + 1; j <= Math.min(i + 2, allLines.length - 1); j++) {
+    const next = allLines[j];
+    if (next.pageBreak) break;
+    let value = null, ref = null, units = '';
+    if (colMap?.value !== undefined) {
+      const laValCutoff = colMap.value - 20;
+      for (const item of next.items) {
+        const t = item.text.trim();
+        if (value === null && item.x >= laValCutoff && Math.abs(item.x - colMap.value) < 70) {
+          const n = parseFloat(t.replace(/,/g, ''));
+          if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
+        }
+        if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < 90) {
+          if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
+        }
+        if (!units && colMap.units !== undefined && Math.abs(item.x - colMap.units) < 70) {
+          if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units = t;
+        }
+      }
+      // Null-byte ref reconstruction (Orange)
+      if (ref === null && colMap.reference !== undefined) {
+        const refNums = next.items
+          .filter(it => Math.abs(it.x - colMap.reference) < 90)
+          .map(it => it.text.replace(/\x00/g, '').trim())
+          .filter(t => /^\d+\.?\d*$/.test(t));
+        if (refNums.length >= 2) ref = refNums[0] + '-' + refNums[1];
+      }
+    } else {
+      for (const item of next.items) {
+        const t = item.text.trim().replace(/,/g, '');
+        if (NUM_RE.test(t)) { value = parseFloat(t); break; }
+      }
+    }
+    const laScale = unitScale(units);
+    if (value !== null) value = value * laScale;
+    if (value !== null && inValueRange(canonical, value)) return { value, ref: scaleRef(ref, laScale) };
+    // Stop if next line matches an unextracted marker
+    const nameItems = colMap?.value !== undefined
+      ? next.items.filter(it => it.x < colMap.value - 20)
+      : next.items;
+    const nm = matchLine(nameItems.map(it => it.text).join(' '));
+    if (nm) {
+      const nc = nm.canonical ?? disambiguate(nm.candidates, null);
+      if (nc && !extracted[nc]) break;
+    }
+  }
+  return { value: null, ref: null };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Speculative peek — scan next 1-2 lines for value+ref without canonical constraint
+// Used when the marker name line has no value (Orange two-line structure)
+// ─────────────────────────────────────────────────────────────────────────────
+function peekNextValue(allLines, i, colMap) {
+  for (let j = i + 1; j <= Math.min(i + 2, allLines.length - 1); j++) {
+    const next = allLines[j];
+    if (next.pageBreak) break;
+    let value = null, ref = null;
+    if (colMap?.value !== undefined) {
+      const pkValCutoff = colMap.value - 20;
+      for (const item of next.items) {
+        const t = item.text.trim();
+        if (value === null && item.x >= pkValCutoff && Math.abs(item.x - colMap.value) < 70) {
+          const n = parseFloat(t.replace(/,/g, ''));
+          if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
+        }
+        if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < 90) {
+          if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
+        }
+      }
+      // Null-byte ref reconstruction (Orange)
+      if (ref === null && colMap.reference !== undefined) {
+        const refNums = next.items
+          .filter(it => Math.abs(it.x - colMap.reference) < 90)
+          .map(it => it.text.replace(/\x00/g, '').trim())
+          .filter(t => /^\d+\.?\d*$/.test(t));
+        if (refNums.length >= 2) ref = refNums[0] + '-' + refNums[1];
+      }
+    } else {
+      for (const item of next.items) {
+        const t = item.text.trim().replace(/,/g, '');
+        if (NUM_RE.test(t)) { value = parseFloat(t); break; }
+      }
+    }
+    if (value !== null) return { value, ref };
+    // Stop if this line is a marker name — don't skip over it to grab its value
+    const pkNameItems = colMap?.value !== undefined
+      ? next.items.filter(it => it.x < colMap.value - 20)
+      : next.items;
+    const pkm = matchLine(pkNameItems.map(it => it.text).join(' '));
+    if (pkm) break;
+  }
+  return { value: null, ref: null };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lines to skip
+// ─────────────────────────────────────────────────────────────────────────────
+const SKIP_RE = [
+  /^\(\s*method\s*:/i,/^\(\s*specimen\s*:/i,/^page\s*:\s*\d/i,/^processed\s*at/i,
+  /^patient\s*(name)?[\s:]/i,/^referred\s*by/i,/^sample\s*(collected|received|type|barcode)/i,
+  /^report\s*(released|status|date)/i,/^home\s*collection/i,/^tests?\s*done/i,
+  /^disclaimer/i,/^please\s*correlate/i,/^method\s*:/i,/^address/i,
+  /^branch/i,/^sid\s*no/i,/^reg\s*(date|no)/i,/^dr\./i,/^scan\s*qr/i,
+  /^alert\s*!/i,/^\*?note\s*[-–:]/i,/^clinical\s*significance/i,
+  /^specifications?:/i,/^conditions\s*of\s*reporting/i,
+  /^test\s*name\s*$/i,/^investigation\s*\/?\s*method/i,
+];
+const shouldSkip = t => SKIP_RE.some(re => re.test(t.trim()));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Out-of-range parser
+// ─────────────────────────────────────────────────────────────────────────────
+export function parseRefRange(refStr) {
+  if (!refStr) return null;
+  const s = refStr.trim();
+  let m = s.match(/^([\d.]+)\s*[-–]\s*([\d.]+)/);
+  if (m) return { low: parseFloat(m[1]), high: parseFloat(m[2]) };
+  m = s.match(/^[<≤]=?\s*([\d.]+)/);
+  if (m) return { low: null, high: parseFloat(m[1]) };
+  m = s.match(/^[>≥]=?\s*([\d.]+)/);
+  if (m) return { low: parseFloat(m[1]), high: null };
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Parse a single PDF. `pdfjsLib` is injected by the caller (CDN global on the
+// web, bundled import on mobile) so this file makes no assumption about how
+// PDF.js is loaded. Never blocks on a date-entry prompt — if no date can be
+// detected, `date` comes back null and the caller's UI layer asks the user.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function parsePDF(arrayBuffer, pdfjsLib) {
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const allLines = [];
+  let scanned = 0;
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    if (content.items.length < 8) { scanned++; continue; }
+    allLines.push({ pageBreak: true });
+    allLines.push(...groupIntoLines(content.items));
+  }
+
+  if (scanned === pdf.numPages) {
+    throw new Error('This PDF appears to be a scanned image — text extraction is not possible.');
+  }
+
+  const date = extractDate(allLines.slice(0, 50));
+
+  const extracted = {};
+  let colMap = null;
+
+  for (let i = 0; i < allLines.length; i++) {
+    const line = allLines[i];
+    if (line.pageBreak) { colMap = null; continue; }
+    if (shouldSkip(line.text)) continue;
+    const newMap = detectColMap(line);
+    if (newMap) {
+      colMap = newMap;
+      // Don't continue — the header line may also contain data (Thyrocare Hemoglobin)
+    }
+
+    // Only extract after we've found a header row — skips index/TOC pages
+    if (!colMap) continue;
+
+    // Match keywords only against name-column items (left of value column)
+    const nameItems = colMap.value !== undefined
+      ? line.items.filter(it => it.x < colMap.value - 20)
+      : line.items;
+    if (!nameItems.length) continue;
+    const nameText = nameItems.map(it => it.text).join('  ');
+
+    const lm = matchLine(nameText);
+    if (!lm) continue;
+
+    // Extract value+ref+units from the current line
+    let { value, ref, units } = extractValueAndRef(line.items, '', colMap);
+    const scale = unitScale(units);
+    if (value !== null) value = value * scale;
+    if (scale !== 1) ref = scaleRef(ref, scale);
+    let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value);
+
+    // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
+    // look at the next line to get a value/ref so we can disambiguate.
+    // Only peek when current line has no value — otherwise we'd grab the next marker's data.
+    if (!canonical && lm.candidates.length > 0 && value === null) {
+      const la = peekNextValue(allLines, i, colMap);
+      if (la.value !== null) {
+        canonical = disambiguate(lm.candidates, la.ref, la.value);
+        if (canonical) { value = la.value; ref = la.ref; }
+      }
+    }
+
+    if (!canonical || extracted[canonical]) continue;
+
+    // Look ahead if value is still missing or out of physiological range
+    if (value === null || !inValueRange(canonical, value)) {
+      ({ value, ref } = lookAheadValue(allLines, i, canonical, colMap, extracted));
+    }
+
+    if (value === null || !inValueRange(canonical, value)) continue;
+
+    extracted[canonical] = { value, ref: ref ?? REF_RANGES[canonical] ?? '' };
+  }
+
+  return { date, extracted };
+}

@@ -29,18 +29,13 @@
     }
 
     /* ── Hero ────────────────────────────────────────────── */
-    .logo {
-      width: 500px;
-      display: block;
-      filter: invert(1) hue-rotate(180deg);
-    }
-
     .hero {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
+      padding: 96px 24px 64px;
       background:
         radial-gradient(ellipse 80% 50% at 50% -10%, rgba(180, 20, 30, 0.25) 0%, transparent 65%),
         var(--bg);
@@ -54,21 +49,9 @@
       margin-bottom: 20px;
       background: linear-gradient(160deg, #ffffff 30%, #f0b8be 100%);
       -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
-    .hero .subtitle {
-      font-size: 1.15rem;
-      color: var(--muted-lt);
-      margin-bottom: 52px;
-      max-width: 440px;
-    }
-
-    .hero .subtitle strong {
-      color: var(--red);
-      font-weight: 600;
-    }
 
     /* ── Upload Zone ─────────────────────────────────────── */
     .upload-zone {
@@ -156,6 +139,28 @@
       font-size: 0.78rem;
     }
 
+    .file-chip {
+      background: rgba(234, 179, 8, 0.12);
+      border: 1px solid rgba(234, 179, 8, 0.4);
+      color: #eab308;
+      padding: 3px 11px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Gradient text falls back to white in html2canvas */
+    body.capturing .hero h1 {
+      background: none !important;
+      -webkit-background-clip: unset !important;
+      -webkit-text-fill-color: #ffffff !important;
+      background-clip: unset !important;
+      color: #ffffff !important;
+    }
+
     /* ── Privacy Badge ───────────────────────────────────── */
     .privacy-badge {
       margin-top: 28px;
@@ -223,7 +228,7 @@
 
     .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 20px;
     }
 
@@ -418,7 +423,74 @@
       background: var(--surface);
     }
 
+    /* ── Hero top (logo + title) ──────────────────────────── */
+    .hero-row {
+      display: flex;
+      align-items: center;
+      gap: 48px;
+      max-width: 1080px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    .hero-brand {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+      gap: 10px;
+      margin-left: 50px;
+    }
+    .hero-logo { margin-top: -150px; height: auto; }
+    .hero-brand-name {
+      font-size: 1.15rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--red);
+      white-space: nowrap;
+    }
+    .hero-content { flex: 1; min-width: 0; }
+    .hero-content h1 { text-align: left; }
+
+    .hero-subtitle {
+      color: var(--muted-lt);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      max-width: 480px;
+      margin: 18px 0 26px;
+    }
+
+    .store-badges {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 14px;
+    }
+    .store-badge-img {
+      width: 250px;
+      height: auto;
+      border-radius: 10px;
+      transition: transform 0.1s ease;
+    }
+    .store-badge-img:hover { transform: scale(1.03); }
+
+    /* ── Try it on browser ────────────────────────────────── */
+    .try-browser {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 16px 24px 64px;
+    }
+
     /* ── Responsive ──────────────────────────────────────── */
+    @media (max-width: 700px) {
+      .hero-row { flex-direction: column; text-align: center; gap: 28px; }
+      .hero-content h1 { text-align: center; }
+      .hero-subtitle { margin-left: auto; margin-right: auto; }
+      .store-badges { justify-content: center; }
+    }
     @media (max-width: 600px) {
       header { padding: 16px 20px; }
       .hero { padding: 52px 16px 48px; }
@@ -426,6 +498,8 @@
       .features { padding: 72px 16px 48px; }
       .privacy-callout { padding: 0 16px; }
       .privacy-callout-inner { padding: 32px 24px; }
+      .try-browser { padding: 16px 16px 48px; }
+      .features-grid { grid-template-columns: 1fr; }
       .section-divider { margin: 0 16px; }
       footer { padding: 24px 20px; }
     }
@@ -435,12 +509,35 @@
 
   <!-- ── Hero ── -->
   <section class="hero">
-    <img src="logo-removebg-preview.png" alt="Track Blood" class="logo">
-    <h1>Track your blood<br>parameters over time</h1>
-    <p class="subtitle">
-      Upload your lab reports and get a clean CSV —&nbsp;<strong>completely private</strong>
-    </p>
+    <div class="hero-row">
+      <div class="hero-brand">
+        <img class="hero-logo" src="logo-icon.png" alt="Track Blood logo">
+        <h1 class="hero-brand-name">Track Blood</h1>
+      </div>
 
+      <div class="hero-content">
+        <h1>Track your blood<br>parameters over time</h1>
+
+        <p class="hero-subtitle">
+          Keep all your blood reports at one place, journal health related
+          updates &amp; set reminders.
+        </p>
+
+        <div class="store-badges">
+          <a href="https://testflight.apple.com/join/REPLACE_ME" target="_blank" rel="noopener">
+            <img class="store-badge-img" src="download-in-app-store.webp" alt="Download on the App Store">
+          </a>
+          <a id="android-download-btn" href="releases/latest.apk?v=1.0.0" download="track-blood.apk">
+            <img style="margin-top: -20px" class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Try it on browser ── -->
+  <section class="try-browser">
+    <p class="section-label">Try it on browser</p>
     <div class="upload-zone" id="dropzone">
       <span class="upload-icon">🩸</span>
       <h3>Drop your PDF reports here</h3>
@@ -448,7 +545,7 @@
       <p class="or-divider">— or —</p>
       <button class="btn-browse" id="browseBtn">Choose Files</button>
       <input type="file" id="fileInput" accept=".pdf" multiple hidden>
-      <div class="supported-labs">
+      <div class="supported-labs" id="labsArea">
         <span class="lab-tag">Thyrocare</span>
         <span class="lab-tag">SRL</span>
         <span class="lab-tag">Metropolis</span>
@@ -457,7 +554,6 @@
         <span class="lab-tag">& more</span>
       </div>
     </div>
-
     <div class="privacy-badge">
       <span class="green-dot"></span>
       All extraction happens in your browser · Zero data ever leaves your device
@@ -535,7 +631,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 
 </body>
 </html>

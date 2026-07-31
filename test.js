@@ -1,46 +1,28 @@
 #!/usr/bin/env node
 'use strict';
 
-// ── Stub browser globals before requiring app.js ──────────────────────────────
-global.window = {
-  addEventListener: () => {},
-  prompt: (_msg, def) => def ?? 'Unknown',
-};
-global.document = {
-  getElementById: () => ({
-    classList: { remove: () => {}, add: () => {} },
-    innerHTML: '',
-    appendChild: () => {},
-    insertRow: () => ({ insertCell: () => ({ textContent: '', classList: { add: () => {} } }), className: '' }),
-    createTHead: () => ({ insertRow: () => ({ appendChild: () => {} }) }),
-    createTBody: () => ({ insertRow: () => ({ insertCell: () => ({ textContent: '', classList: { add: () => {} } }), className: '', colSpan: 0 }) }),
-  }),
-};
-
 // ── Setup pdfjs-dist for Node.js ──────────────────────────────────────────────
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
-global.pdfjsLib = pdfjsLib;
-
-// ── Import core extraction logic from app.js ──────────────────────────────────
-const { parsePDF, MARKER_GROUPS } = require('./app.js');
 
 const fs   = require('fs');
 const path = require('path');
 
-function makeFile(filePath) {
+function readArrayBuffer(filePath) {
   const buf = fs.readFileSync(filePath);
-  return {
-    name: path.basename(filePath),
-    arrayBuffer: () => Promise.resolve(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)),
-  };
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
 const PDF_DIR  = __dirname;
 const PDF_NAMES = ['orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf'];
-const ALL_MARKERS = MARKER_GROUPS.flatMap(g => g.keys);
 
 async function main() {
+  // parser-core.mjs is a real ES module (shared with the mobile app) —
+  // dynamic import() works from this CommonJS script without converting the
+  // whole file or the package to "type": "module".
+  const { parsePDF, MARKER_GROUPS } = await import('./parser-core.mjs');
+  const ALL_MARKERS = MARKER_GROUPS.flatMap(g => g.keys);
+
   const results = [];
 
   for (const name of PDF_NAMES) {
@@ -48,7 +30,7 @@ async function main() {
     if (!fs.existsSync(pdfPath)) { console.log(`SKIP: ${name} not found`); continue; }
     process.stdout.write(`Parsing ${name}... `);
     try {
-      const r = await parsePDF(makeFile(pdfPath));
+      const r = await parsePDF(readArrayBuffer(pdfPath), pdfjsLib);
       results.push({ name, date: r.date, extracted: r.extracted });
       console.log(`done  [${r.date}]  ${Object.keys(r.extracted).length} markers found`);
     } catch (err) {

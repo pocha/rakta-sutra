@@ -1,0 +1,133 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Shared light theme — CSS variables + baseline element/utility styles.
+   Plain global CSS (not Svelte-scoped) so every component can use these
+   classes directly instead of re-declaring the same button/input/card
+   styling in each <style> block.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --border: #e8e8ec;
+  --text: #1c1c1e;
+  --muted: #8a8a90;
+  --muted-lt: #6e6e75;
+  --accent: #e63946;
+  --accent-dim: #c62839;
+  --accent-soft: rgba(230, 57, 70, 0.08);
+  --accent-soft-strong: rgba(230, 57, 70, 0.14);
+  --ok: #1c9a5b;
+  --shadow-sm: 0 1px 3px rgba(20, 20, 30, 0.06), 0 1px 2px rgba(20, 20, 30, 0.04);
+  --shadow-md: 0 8px 24px rgba(20, 20, 30, 0.10);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden; /* the document itself never scrolls — only designated inner containers do */
+  overscroll-behavior: none; /* stop iOS/Android rubber-band bounce from swallowing the gesture */
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app { height: 100%; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ── Cards / surfaces ─────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 14px;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(230, 57, 70, 0.28); }
+.btn-ghost { background: transparent; box-shadow: none; color: var(--muted-lt); }
+.btn-danger { background: transparent; box-shadow: none; color: var(--accent-dim); }
+.btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; }
+.btn-pill { border-radius: 999px; }
+.btn-block { width: 100%; display: block; text-align: center; }
+
+/* ── Form controls ────────────────────────────────────────────────────── */
+.input, .select, .textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease;
+}
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.textarea { resize: vertical; }
+
+/* ── Overlay + centered modal popup ──────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 24, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.sheet {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  width: 100%;
+  max-width: 420px;
+  animation: sheet-pop 0.15s ease-out;
+}
+.sheet h2 { margin: 0 0 14px; font-size: 1.05rem; font-weight: 600; }
+@keyframes sheet-pop {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ── Chips / badges ───────────────────────────────────────────────────── */
+.chip {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted-lt);
+}
+.chip-accent { background: var(--accent-soft); color: var(--accent-dim); border-color: transparent; }
+
+.out-of-range { color: var(--accent-dim); font-weight: 600; }
+.muted { color: var(--muted); }
