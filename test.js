@@ -14,13 +14,18 @@ function readArrayBuffer(filePath) {
 }
 
 const PDF_DIR  = __dirname;
-const PDF_NAMES = ['orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf'];
+const PDF_NAMES = ['orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf'];
 
 async function main() {
   // parser-core.mjs is a real ES module (shared with the mobile app) —
   // dynamic import() works from this CommonJS script without converting the
   // whole file or the package to "type": "module".
-  const { parsePDF, MARKER_GROUPS } = await import('./parser-core.mjs');
+  const core = await import('./parser-core.mjs');
+  // parser-config.json is plain JSON — require() reads it natively, no
+  // special handling needed. Must configure before reading MARKER_GROUPS
+  // (destructuring it beforehand would capture the pre-configure `null`).
+  core.configureParser(require('./parser-config.json'));
+  const { parsePDF, MARKER_GROUPS } = core;
   const ALL_MARKERS = MARKER_GROUPS.flatMap(g => g.keys);
 
   const results = [];

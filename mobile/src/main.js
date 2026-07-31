@@ -3,6 +3,7 @@ import './theme.css';
 import App from './App.svelte';
 import { initDb } from './lib/db.js';
 import { initPush } from './lib/push.js';
+import { initParserConfig } from './lib/parserConfigSync.js';
 
 // WKWebView (iOS) has historically lacked ReadableStream async iteration —
 // pdf.js's getTextContent() does `for await (const value of readableStream)`,
@@ -25,7 +26,7 @@ if (typeof ReadableStream !== 'undefined' && !ReadableStream.prototype[Symbol.as
   };
 }
 
-initDb()
+Promise.all([initDb(), initParserConfig()])
   .then(() => {
     mount(App, { target: document.getElementById('app') });
     initPush().catch((err) => console.error('[main] initPush failed:', err));
