@@ -5,6 +5,7 @@
   import { showToast } from './lib/toast.svelte.js';
   import Drawer from './components/Drawer.svelte';
   import BackupScreen from './components/BackupScreen.svelte';
+  import NotificationsScreen from './components/NotificationsScreen.svelte';
   import TabBar from './components/TabBar.svelte';
   import ReportTab from './components/ReportTab.svelte';
   import TimelineTab from './components/TimelineTab.svelte';
@@ -42,7 +43,7 @@
   <header class="topbar">
     {#if appState.screen}
       <button class="icon-btn" onclick={closeScreen} aria-label="Back">←</button>
-      <h1>Backup &amp; Restore</h1>
+      <h1>{appState.screen === 'notifications' ? 'Notifications' : 'Backup & Restore'}</h1>
     {:else}
       <button class="icon-btn" onclick={() => (appState.drawerOpen = true)} aria-label="Menu">☰</button>
       <img class="logo" src={logo} alt="" />
@@ -58,6 +59,8 @@
   <main class="content">
     {#if appState.screen === 'backup'}
       <BackupScreen />
+    {:else if appState.screen === 'notifications'}
+      <NotificationsScreen />
     {:else if ready && appState.activeProfileId}
       {#if appState.activeTab === 'report'}
         <ReportTab profileId={appState.activeProfileId} />

@@ -11,7 +11,7 @@ export const appState = $state({
   activeTab: 'report', // 'report' | 'timeline' | 'reminder'
   jumpToReportId: null, // set by Timeline's "View full report" link
   drawerOpen: false,
-  screen: null, // null (normal tabs) | 'backup' (pushed full screen)
+  screen: null, // null (normal tabs) | 'backup' | 'notifications' (pushed full screen)
 });
 
 export function openScreen(name) {

@@ -6,6 +6,7 @@
   import { jumpToReport } from '../lib/state.svelte.js';
   import { deleteReportFile, openReportFile } from '../lib/reports.js';
   import { showToast } from '../lib/toast.svelte.js';
+  import { logAnalyticsEvent } from '../lib/analytics.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
 
@@ -77,8 +78,10 @@
     const { date, canonicals } = parseJournalText(noteText, new Date());
     if (editingNoteId) {
       await db.updateJournalEntry(editingNoteId, date, noteText.trim(), canonicals);
+      await logAnalyticsEvent('journal_edit');
     } else {
       await db.addJournalEntry(profileId, date, noteText.trim(), canonicals);
+      await logAnalyticsEvent('journal_add');
     }
     noteModalOpen = false;
     noteText = '';

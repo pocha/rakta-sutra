@@ -1,5 +1,5 @@
 {
-  "appId": "org.trackblood.app",
+  "appId": "fyi.pocha.trackblood",
   "appName": "Track Blood",
   "webDir": "dist",
   "backgroundColor": "#090909",
@@ -12,6 +12,9 @@
     "LocalNotifications": {
       "smallIcon": "ic_stat_icon",
       "iconColor": "#e63946"
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": []
     }
   }
 }

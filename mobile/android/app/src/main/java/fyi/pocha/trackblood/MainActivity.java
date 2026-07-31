@@ -1,4 +1,4 @@
-package org.trackblood.app;
+package fyi.pocha.trackblood;
 
 import com.getcapacitor.BridgeActivity;
 
