@@ -20,6 +20,7 @@ module.exports = {
   ignorePatterns: [
     "/lib/**/*", // Ignore built files.
     "/generated/**/*", // Ignore generated files.
+    "smoke-test.js", // Dev-only script, not part of the src/ TS project.
   ],
   plugins: [
     "@typescript-eslint",
