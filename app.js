@@ -3,7 +3,16 @@
 // pdfjsLib is the CDN global (loaded via <script> before this file); the core
 // module takes it as a parameter rather than assuming how it's loaded.
 // ─────────────────────────────────────────────────────────────────────────────
-import { parsePDF as extractFromPdf, MARKER_GROUPS, REF_RANGES, parseRefRange } from './parser-core.mjs';
+import { parsePDF as extractFromPdf, configureParser, MARKER_GROUPS, REF_RANGES, parseRefRange } from './parser-core.mjs';
+
+// Bundled default config, fetched rather than statically imported since this
+// file has no build step — see parser-core.mjs's header comment for why the
+// data/logic split exists (lets report-format fixes ship without touching
+// this file, eventually via a fetched config instead of this local copy).
+// Top-level await here is safe: DOMContentLoaded is held back until a module
+// script (including any pending top-level await) finishes evaluating.
+const parserConfig = await fetch('./parser-config.json').then(r => r.json());
+configureParser(parserConfig);
 
 // Thin wrapper: converts the browser File → ArrayBuffer, injects pdfjsLib,
 // and falls back to prompting for a date when the core couldn't detect one

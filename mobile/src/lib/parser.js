@@ -11,6 +11,8 @@ import { parsePDF as extractFromPdf, MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, par
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+// configureParser() is called once at app startup (see main.js →
+// parserConfigSync.js), before anything here is used.
 export { MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange };
 
 export async function parsePDF(arrayBuffer) {
