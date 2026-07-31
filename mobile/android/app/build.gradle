@@ -16,10 +16,10 @@ def releaseVersionCode = (System.getenv("ANDROID_VERSION_CODE") ?: "1").toIntege
 def releaseVersionName = System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
 
 android {
-    namespace = "org.trackblood.app"
+    namespace = "fyi.pocha.trackblood"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "org.trackblood.app"
+        applicationId "fyi.pocha.trackblood"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Overridden by deploy.sh at build time (ANDROID_VERSION_CODE / _NAME);

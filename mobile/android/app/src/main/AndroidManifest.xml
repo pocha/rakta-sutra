@@ -27,6 +27,12 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Used by FCM's own background/killed-app notification display —
+             matches the icon/color explicitly set in the push payload
+             (functions/src/index.ts) so both code paths render identically. -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_icon" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notification_accent" />
     </application>
 
     <!-- Permissions -->

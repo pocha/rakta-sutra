@@ -7,6 +7,7 @@
   import { appState } from '../lib/state.svelte.js';
   import { showToast } from '../lib/toast.svelte.js';
   import { truncationCheck } from '../lib/actions.js';
+  import { logAnalyticsEvent } from '../lib/analytics.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
 
@@ -66,7 +67,11 @@
     return rows;
   });
 
-  const availableToAdd = $derived(ALL_CANONICALS.filter(c => !(c in valuesByCanonical)));
+  const availableToAdd = $derived(
+    currentReport
+      ? ALL_CANONICALS.filter(c => valuesByCanonical[c]?.[currentReport.id] === undefined)
+      : []
+  );
   const currentReport = $derived(reports[pageIndex]);
   const addSuggestions = $derived(
     addQuery.trim().length >= 3
@@ -155,6 +160,7 @@
         }
         const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
         lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted);
+        await logAnalyticsEvent('report_imported');
       }
       statusMsg = '';
       await refresh();
@@ -173,7 +179,12 @@
     } catch (err) {
       statusMsg = '';
       showToast('Upload failed: ' + err.message, 'error');
-      console.error(err);
+      // Capacitor's native console bridge JSON-serializes console.error args,
+      // and Error objects serialize to "{}" (message/stack aren't enumerable
+      // own properties) — log them as plain strings so they actually show up
+      // in the native device console.
+      console.error('[pickAndUpload] failed:', err.message);
+      console.error('[pickAndUpload] stack:', err.stack);
     } finally {
       busy = false;
     }
@@ -351,7 +362,7 @@
     font-weight: 600;
   }
   .col-marker { flex: 1; min-width: 0; }
-  .col-range { width: 80px; flex-shrink: 0; }
+  .col-range { width: 62px; flex-shrink: 0; text-align: center; }
   .col-value-nav {
     width: 140px;
     flex-shrink: 0;
@@ -415,10 +426,10 @@
   }
 
   .marker-cell { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
-  .marker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .marker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 0.86rem; }
   .info-btn { flex-shrink: 0; background: none; border: none; color: var(--muted); padding: 2px; display: none; }
   .marker-cell.truncated .info-btn { display: flex; }
-  .range-cell { width: 80px; flex-shrink: 0; font-size: 0.78rem; color: var(--muted-lt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .range-cell { width: 62px; flex-shrink: 0; font-size: 0.78rem; color: var(--muted-lt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 
   input[type='number'] {
     width: 100%; max-width: 90px; box-sizing: border-box;

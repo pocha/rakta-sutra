@@ -63,6 +63,23 @@ const SCHEMA = `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS device_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+
+  -- The push notification itself only ever carries a generic "you have a
+  -- reminder" alert (see /functions) — this logs the real text, read from
+  -- the reminders table, only when the user taps the notification and the
+  -- app is actually running to look it up. Untapped/dismissed notifications
+  -- are not logged (see the root README's backend Architecture section).
+  CREATE TABLE IF NOT EXISTS notification_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reminder_id INTEGER,
+    text TEXT NOT NULL,
+    tapped_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_reports_profile ON reports(profile_id, report_date);
   CREATE INDEX IF NOT EXISTS idx_markers_canonical ON markers(canonical);
   CREATE INDEX IF NOT EXISTS idx_journal_profile ON journal_entries(profile_id, entry_date);
@@ -314,6 +331,10 @@ export async function getMarkerTimeline(profileId, canonical) {
 
 // Full marker × date matrix for one profile — used to build the shareable
 // consolidated PDF (every report's values, one column per date).
+// Sharing a PDF is meant for a quick trend snapshot, not a full archive — cap
+// it to the 3 most recent reports so it stays readable (and short) on paper.
+const MAX_SHARED_REPORT_DATES = 3;
+
 export async function getConsolidatedMatrix(profileId) {
   const rows = (await db.query(
     `SELECT r.report_date as date, m.canonical, m.value, m.ref_range
@@ -322,7 +343,8 @@ export async function getConsolidatedMatrix(profileId) {
     [profileId]
   )).values;
 
-  const dates = [...new Set(rows.map(r => r.date))];
+  const allDates = [...new Set(rows.map(r => r.date))];
+  const dates = allDates.slice(-MAX_SHARED_REPORT_DATES);
   const markers = {};
   const refRanges = {};
   for (const row of rows) {
@@ -411,10 +433,38 @@ export async function listReminders(profileId) {
   )).values;
 }
 
+export async function getReminderById(id) {
+  const rows = (await db.query('SELECT * FROM reminders WHERE id = ?', [id])).values;
+  return rows[0] ?? null;
+}
+
+// ── Device settings ──────────────────────────────────────────────────────────
+// A tiny key/value table for device-scoped settings that aren't tied to any
+// profile — currently just the stable deviceId used to register this
+// install with the reminder-push backend.
+// ── Notification history ─────────────────────────────────────────────────────
+export async function logNotificationTap(reminderId, text) {
+  await db.run('INSERT INTO notification_log (reminder_id, text) VALUES (?, ?)', [reminderId, text]);
+  await persist();
+}
+
+export async function listNotificationLog() {
+  return (await db.query('SELECT * FROM notification_log ORDER BY tapped_at DESC')).values;
+}
+
+export async function getOrCreateDeviceId() {
+  const rows = (await db.query('SELECT value FROM device_settings WHERE key = ?', ['deviceId'])).values;
+  if (rows[0]) return rows[0].value;
+  const deviceId = crypto.randomUUID();
+  await db.run('INSERT INTO device_settings (key, value) VALUES (?, ?)', ['deviceId', deviceId]);
+  await persist();
+  return deviceId;
+}
+
 // ── Backup / restore ─────────────────────────────────────────────────────────
 // Full-database dump/replace — used by backup.js to build/restore a zip.
 // Not profile-scoped: a backup always covers every profile.
-const TABLES_IN_FK_ORDER = ['profiles', 'reports', 'markers', 'journal_entries', 'journal_marker_index', 'reminders'];
+const TABLES_IN_FK_ORDER = ['profiles', 'reports', 'markers', 'journal_entries', 'journal_marker_index', 'reminders', 'notification_log'];
 
 export async function exportAllData() {
   const data = {};
@@ -428,6 +478,10 @@ export async function importAllData(data) {
   await db.beginTransaction();
   try {
     await db.run('DELETE FROM profiles', [], false); // cascades to every child table
+    // notification_log isn't FK-linked to profiles (it's history, not
+    // per-profile data), so the cascade above doesn't clear it — do it
+    // explicitly or a restore would just pile new rows on top of old ones.
+    await db.run('DELETE FROM notification_log', [], false);
     for (const table of TABLES_IN_FK_ORDER) {
       const rows = data[table] ?? [];
       for (const row of rows) {
