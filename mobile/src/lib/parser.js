@@ -7,9 +7,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { parsePDF as extractFromPdf, MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange } from '../../../parser-core.mjs';
+import parserConfig from '../../../parser-config.json';
+import { parsePDF as extractFromPdf, configureParser, MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange } from '../../../parser-core.mjs';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+// Bundled default config — see parser-core.mjs's header comment for why the
+// data/logic split exists (lets report-format fixes ship without an app
+// update, eventually via a fetched config instead of this bundled copy).
+configureParser(parserConfig);
 
 export { MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange };
 
