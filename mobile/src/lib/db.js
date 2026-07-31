@@ -464,7 +464,7 @@ export async function getOrCreateDeviceId() {
 // ── Backup / restore ─────────────────────────────────────────────────────────
 // Full-database dump/replace — used by backup.js to build/restore a zip.
 // Not profile-scoped: a backup always covers every profile.
-const TABLES_IN_FK_ORDER = ['profiles', 'reports', 'markers', 'journal_entries', 'journal_marker_index', 'reminders'];
+const TABLES_IN_FK_ORDER = ['profiles', 'reports', 'markers', 'journal_entries', 'journal_marker_index', 'reminders', 'notification_log'];
 
 export async function exportAllData() {
   const data = {};
@@ -478,6 +478,10 @@ export async function importAllData(data) {
   await db.beginTransaction();
   try {
     await db.run('DELETE FROM profiles', [], false); // cascades to every child table
+    // notification_log isn't FK-linked to profiles (it's history, not
+    // per-profile data), so the cascade above doesn't clear it — do it
+    // explicitly or a restore would just pile new rows on top of old ones.
+    await db.run('DELETE FROM notification_log', [], false);
     for (const table of TABLES_IN_FK_ORDER) {
       const rows = data[table] ?? [];
       for (const row of rows) {
