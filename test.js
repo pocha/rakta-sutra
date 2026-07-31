@@ -14,7 +14,7 @@ function readArrayBuffer(filePath) {
 }
 
 const PDF_DIR  = __dirname;
-const PDF_NAMES = ['orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf'];
+const PDF_NAMES = ['orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf'];
 
 async function main() {
   // parser-core.mjs is a real ES module (shared with the mobile app) —

@@ -303,8 +303,8 @@ function parseDate(text) {
   // DD/MM/YYYY or DD-MM-YYYY
   let m = text.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
   if (m && parseInt(m[2]) <= 12) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-  // DD/Mon/YYYY (Tata 1mg: "01/Feb/2026")
-  m = text.match(/\b(\d{1,2})\/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\/(\d{4})\b/i);
+  // DD/Mon/YYYY or DD-Mon-YYYY (Tata 1mg: "01/Feb/2026", centro-med: "09-Aug-2025")
+  m = text.match(/\b(\d{1,2})[\/\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\/\-](\d{4})\b/i);
   if (m) return `${m[3]}-${MONTH_MAP[m[2].toLowerCase().slice(0,3)]}-${m[1].padStart(2,'0')}`;
   // DD MMM[,] YYYY
   m = text.match(/\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[,\s]+(\d{4})\b/i);
@@ -350,7 +350,7 @@ function groupIntoLines(items) {
 // ─────────────────────────────────────────────────────────────────────────────
 const COL_PATTERNS = {
   test:      /\b(test|test\s*name|investigation|parameter)\b/i,
-  value:     /\b(result|results|value|observed\s*value)\b/i,
+  value:     /\b(results?|values?|observed\s*values?)\b/i,
   reference: /\b(ref(?:erence)?\.?\s*(?:interval)?|bio\.?\s*ref|biological\s*ref|normal\s*range|b\.r\.i\.?)\b/i,
   units:     /\bunits?\b/i,
 };
