@@ -67,7 +67,11 @@
     return rows;
   });
 
-  const availableToAdd = $derived(ALL_CANONICALS.filter(c => !(c in valuesByCanonical)));
+  const availableToAdd = $derived(
+    currentReport
+      ? ALL_CANONICALS.filter(c => valuesByCanonical[c]?.[currentReport.id] === undefined)
+      : []
+  );
   const currentReport = $derived(reports[pageIndex]);
   const addSuggestions = $derived(
     addQuery.trim().length >= 3

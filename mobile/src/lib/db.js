@@ -331,6 +331,10 @@ export async function getMarkerTimeline(profileId, canonical) {
 
 // Full marker × date matrix for one profile — used to build the shareable
 // consolidated PDF (every report's values, one column per date).
+// Sharing a PDF is meant for a quick trend snapshot, not a full archive — cap
+// it to the 3 most recent reports so it stays readable (and short) on paper.
+const MAX_SHARED_REPORT_DATES = 3;
+
 export async function getConsolidatedMatrix(profileId) {
   const rows = (await db.query(
     `SELECT r.report_date as date, m.canonical, m.value, m.ref_range
@@ -339,7 +343,8 @@ export async function getConsolidatedMatrix(profileId) {
     [profileId]
   )).values;
 
-  const dates = [...new Set(rows.map(r => r.date))];
+  const allDates = [...new Set(rows.map(r => r.date))];
+  const dates = allDates.slice(-MAX_SHARED_REPORT_DATES);
   const markers = {};
   const refRanges = {};
   for (const row of rows) {
