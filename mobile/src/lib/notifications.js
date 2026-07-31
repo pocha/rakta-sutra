@@ -40,16 +40,16 @@ async function callFunction(name, payload) {
 
 // Fires a local notification right now — used when a push arrives while the
 // app is in the foreground (push.js), since the OS doesn't auto-display FCM
-// alerts there. `notificationId` is stashed in `extra` so a tap on *this*
-// notification (a separate tap-event system from FCM's, see push.js) can
-// still be traced back to the reminder.
-export async function showReminderNow(text, notificationId) {
+// alerts there. `notificationId`/`type` are stashed in `extra` so a tap on
+// *this* notification (a separate tap-event system from FCM's, see push.js)
+// can still be traced back to the reminder and handled the same way.
+export async function showReminderNow(text, notificationId, type) {
   await LocalNotifications.schedule({
     notifications: [{
       id: Math.floor(Math.random() * 2_147_483_647),
       title: 'Track Blood',
       body: text,
-      extra: { notificationId },
+      extra: { notificationId, type },
     }],
   });
 }

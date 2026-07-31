@@ -1,8 +1,12 @@
 // Reminder delivery backend — the app never uploads reminder text. Only an
 // opaque notificationId (the reminder's own local SQLite row id) plus a
 // remind-at time/recurrence rule (metadata, not content) ever reach here.
-// One-time reminders are scheduled as a Cloud Task; recurring reminders are
-// tracked in Firestore and swept periodically.
+// Every reminder — one-time or recurring — is a single Cloud Task. A
+// recurring task, after sending its push, computes the next occurrence
+// itself and enqueues a fresh task for it (self-rescheduling chain) rather
+// than relying on a periodic sweep across all reminders — this fires at
+// the exact scheduled second instead of within some polling window, and
+// needs no separate Firestore state for recurring reminders at all.
 //
 // The push itself carries a fixed, generic alert ("You have a reminder") —
 // never the actual reminder text — so the OS can display it natively even
@@ -10,9 +14,8 @@
 // real text only ever surfaces on-device: the app looks it up locally by
 // notificationId (still attached as `data`) when the user taps the
 // notification, and logs it to the in-app notification history then.
-import {setGlobalOptions} from "firebase-functions";
 import {onRequest, Request} from "firebase-functions/v2/https";
-import {onSchedule} from "firebase-functions/v2/scheduler";
+import {setGlobalOptions} from "firebase-functions";
 import {defineSecret} from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import {initializeApp} from "firebase-admin/app";
@@ -60,33 +63,41 @@ function withCors(
 
 const GENERIC_ALERT_TITLE = "Track Blood";
 const GENERIC_ALERT_BODY = "You have a reminder";
+const RESCHEDULE_FAILED_BODY =
+  "A recurring reminder couldn't be rescheduled — please reopen it and tap Save again.";
 
-async function pushToDevice(deviceId: string, notificationId: string | number) {
+async function pushToDevice(
+  deviceId: string,
+  notificationId: string | number,
+  options?: {body?: string; type?: string}
+) {
   const deviceDoc = await db.collection("devices").doc(deviceId).get();
   const fcmToken = deviceDoc.data()?.fcmToken;
   if (!fcmToken) {
     logger.warn(`No fcmToken for device ${deviceId}`);
     return;
   }
+  const body = options?.body ?? GENERIC_ALERT_BODY;
   await getMessaging().send({
     token: fcmToken,
-    notification: {title: GENERIC_ALERT_TITLE, body: GENERIC_ALERT_BODY},
-    data: {notificationId: String(notificationId)},
+    notification: {title: GENERIC_ALERT_TITLE, body},
+    data: {notificationId: String(notificationId), type: options?.type ?? "reminder"},
     android: {
       priority: "high",
       notification: {icon: "ic_stat_icon", color: "#e63946"},
     },
     apns: {
       headers: {"apns-priority": "10"},
-      payload: {aps: {alert: {title: GENERIC_ALERT_TITLE, body: GENERIC_ALERT_BODY}}},
+      payload: {aps: {alert: {title: GENERIC_ALERT_TITLE, body}}},
     },
   });
 }
 
 // Cloud Tasks task names must be reused only after ~1hr once deleted, so
 // tasks are always created with an auto-generated name and the actual name
-// is stashed in Firestore, keyed by notificationId, so edits/cancels can
-// delete the right task without ever reusing a name.
+// is stashed in Firestore, keyed by notificationId, so edits/cancels (and
+// each recurring re-schedule) can delete/replace the right task without
+// ever reusing a name.
 async function deleteExistingTask(deviceId: string, notificationId: string | number) {
   const ref = db.collection("devices").doc(deviceId).collection("tasks")
     .doc(String(notificationId));
@@ -96,6 +107,31 @@ async function deleteExistingTask(deviceId: string, notificationId: string | num
     if (taskName) await tasksClient.deleteTask({name: taskName}).catch(() => {});
     await ref.delete();
   }
+}
+
+async function createReminderTask(
+  deviceId: string,
+  notificationId: string | number,
+  remindAtISO: string,
+  recurrence: string | null
+) {
+  const [task] = await tasksClient.createTask({
+    parent: tasksClient.queuePath(PROJECT_ID, LOCATION, QUEUE),
+    task: {
+      httpRequest: {
+        httpMethod: "POST",
+        url: `${sendReminderPushUrl()}?secret=` +
+          encodeURIComponent(REMINDER_PUSH_SECRET.value()),
+        headers: {"Content-Type": "application/json"},
+        body: Buffer.from(
+          JSON.stringify({deviceId, notificationId, remindAt: remindAtISO, recurrence})
+        ).toString("base64"),
+      },
+      scheduleTime: {seconds: Math.floor(new Date(remindAtISO).getTime() / 1000)},
+    },
+  });
+  await db.collection("devices").doc(deviceId).collection("tasks")
+    .doc(String(notificationId)).set({taskName: task.name});
 }
 
 export const registerDevice = onRequest(withCors(async (req, res) => {
@@ -129,32 +165,7 @@ export const scheduleReminder = onRequest(
     }
 
     await deleteExistingTask(deviceId, notificationId);
-    await db.collection("devices").doc(deviceId).collection("reminders")
-      .doc(String(notificationId)).delete().catch(() => {});
-
-    if (!recurrence) {
-      const [task] = await tasksClient.createTask({
-        parent: tasksClient.queuePath(PROJECT_ID, LOCATION, QUEUE),
-        task: {
-          httpRequest: {
-            httpMethod: "POST",
-            url: `${sendReminderPushUrl()}?secret=` +
-              encodeURIComponent(REMINDER_PUSH_SECRET.value()),
-            headers: {"Content-Type": "application/json"},
-            body: Buffer.from(JSON.stringify({deviceId, notificationId})).toString("base64"),
-          },
-          scheduleTime: {seconds: Math.floor(new Date(remindAt).getTime() / 1000)},
-        },
-      });
-      await db.collection("devices").doc(deviceId).collection("tasks")
-        .doc(String(notificationId)).set({taskName: task.name});
-    } else {
-      await db.collection("devices").doc(deviceId).collection("reminders")
-        .doc(String(notificationId)).set({
-          recurrence,
-          nextFireAt: Timestamp.fromDate(new Date(remindAt)),
-        });
-    }
+    await createReminderTask(deviceId, notificationId, remindAt, recurrence ?? null);
     res.json({ok: true});
   })
 );
@@ -170,8 +181,6 @@ export const cancelReminder = onRequest(withCors(async (req, res) => {
     return;
   }
   await deleteExistingTask(deviceId, notificationId);
-  await db.collection("devices").doc(deviceId).collection("reminders")
-    .doc(String(notificationId)).delete().catch(() => {});
   res.json({ok: true});
 }));
 
@@ -182,26 +191,29 @@ export const sendReminderPush = onRequest(
       res.status(403).send("Forbidden");
       return;
     }
-    const {deviceId, notificationId} = req.body ?? {};
+    const {deviceId, notificationId, remindAt, recurrence} = req.body ?? {};
     if (!deviceId || notificationId === undefined) {
       res.status(400).json({error: "deviceId and notificationId required"});
       return;
     }
+
     await pushToDevice(deviceId, notificationId);
+
+    if (recurrence) {
+      try {
+        const next = nextOccurrence(new Date(remindAt), recurrence);
+        await createReminderTask(deviceId, notificationId, next.toISOString(), recurrence);
+      } catch (err) {
+        logger.error(
+          `Failed to reschedule recurring reminder ${notificationId} for device ${deviceId}`, err
+        );
+        await pushToDevice(deviceId, notificationId, {
+          body: RESCHEDULE_FAILED_BODY,
+          type: "reschedule_failed",
+        }).catch((notifyErr) => logger.error("Failed to send reschedule-failure alert", notifyErr));
+      }
+    }
+
     res.json({ok: true});
   }
 );
-
-export const sweepRecurringReminders = onSchedule("every 15 minutes", async () => {
-  const now = Timestamp.now();
-  const snap = await db.collectionGroup("reminders").where("nextFireAt", "<=", now).get();
-  for (const doc of snap.docs) {
-    const {recurrence, nextFireAt} = doc.data();
-    const deviceId = doc.ref.parent.parent?.id;
-    if (!deviceId) continue;
-    const notificationId = doc.id;
-    await pushToDevice(deviceId, notificationId);
-    const next = nextOccurrence((nextFireAt as Timestamp).toDate(), recurrence);
-    await doc.ref.update({nextFireAt: Timestamp.fromDate(next)});
-  }
-});

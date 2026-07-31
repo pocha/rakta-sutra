@@ -14,13 +14,17 @@
 // notificationActionPerformed (FCM, background/killed taps) and
 // localNotificationActionPerformed (the foreground re-display) need to be
 // handled, funneling into the same lookup-and-navigate logic.
+//
+// A push can also carry `type: 'reschedule_failed'` — sent by /functions
+// when a recurring reminder's self-rescheduling Cloud Task chain breaks —
+// which is handled distinctly (see handleNotificationTap).
 // ─────────────────────────────────────────────────────────────────────────────
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { getOrCreateDeviceId, getReminderById, logNotificationTap } from './db.js';
 import { showReminderNow } from './notifications.js';
 import { logAnalyticsEvent } from './analytics.js';
-import { openScreen } from './state.svelte.js';
+import { appState, openScreen } from './state.svelte.js';
 
 const FUNCTIONS_BASE = 'https://asia-south1-track-blood.cloudfunctions.net';
 
@@ -34,12 +38,27 @@ async function registerDeviceToken(token) {
 }
 
 async function handleForegroundNotification(notification) {
-  await showReminderNow(notification?.body || 'You have a reminder', notification?.data?.notificationId);
+  await showReminderNow(
+    notification?.body || 'You have a reminder',
+    notification?.data?.notificationId,
+    notification?.data?.type
+  );
   await logAnalyticsEvent('notification_sent');
 }
 
-async function handleNotificationTap(notificationId) {
+// `type: 'reschedule_failed'` is a system alert (a recurring reminder's
+// self-reschedule failed server-side, see /functions), not an actual
+// reminder firing — logging the *pushed* text (not a local DB lookup) and
+// sending the user to the Reminder tab to fix it, instead of the
+// Notifications history a normal reminder tap goes to.
+async function handleNotificationTap(notificationId, type, body) {
   if (!notificationId) return;
+  if (type === 'reschedule_failed') {
+    await logNotificationTap(Number(notificationId), body || 'A recurring reminder needs your attention.');
+    appState.activeTab = 'reminder';
+    appState.screen = null;
+    return;
+  }
   const reminder = await getReminderById(Number(notificationId));
   if (!reminder) return;
   await logNotificationTap(reminder.id, reminder.text);
@@ -69,12 +88,14 @@ export async function initPush() {
   });
 
   await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
-    await handleNotificationTap(event.notification?.data?.notificationId)
+    const n = event.notification;
+    await handleNotificationTap(n?.data?.notificationId, n?.data?.type, n?.body)
       .catch((err) => console.error('[push] tap handling failed:', err));
   });
 
   await LocalNotifications.addListener('localNotificationActionPerformed', async (event) => {
-    await handleNotificationTap(event.notification?.extra?.notificationId)
+    const n = event.notification;
+    await handleNotificationTap(n?.extra?.notificationId, n?.extra?.type, n?.body)
       .catch((err) => console.error('[push] local notification tap handling failed:', err));
   });
 }
