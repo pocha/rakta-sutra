@@ -234,6 +234,11 @@ export function disambiguate(candidates, ref, value = null) {
 // Value and reference extraction
 // ─────────────────────────────────────────────────────────────────────────────
 const NUM_RE   = /^-?\d+\.?\d*$/;
+// Some report generators emit a value and its unit as one combined PDF text
+// item (e.g. "2.46 mcIU/mL") instead of two separate items — NUM_RE alone
+// can't match that since it requires the *whole* string to be numeric. This
+// extracts a leading number followed by trailing unit text as a fallback.
+const NUM_WITH_TRAILING_RE = /^(-?\d+\.?\d*)\s+(\S.*)$/;
 const RANGE_RE = /^\d+\.?\d*\s*[-–]\s*\d+\.?\d*$|^[<>≤≥]=?\s*\d+\.?\d*$|^\d+:\d+\s*[-–]\s*\d+:\d+$/;
 
 function extractValueAndRef(lineItems, alias, colMap) {
@@ -257,8 +262,16 @@ function extractValueAndRef(lineItems, alias, colMap) {
     for (const item of after) {
       const t = item.text.trim();
       if (value === null && colMap.value !== undefined && item.x >= valCutoff && Math.abs(item.x - colMap.value) < LAYOUT.valueColumnTolerance) {
-        const n = parseFloat(t.replace(/,/g, ''));
-        if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
+        const cleaned = t.replace(/,/g, '');
+        if (NUM_RE.test(cleaned)) {
+          value = parseFloat(cleaned);
+        } else {
+          const m = cleaned.match(NUM_WITH_TRAILING_RE);
+          if (m) {
+            value = parseFloat(m[1]);
+            if (!units) units = m[2];
+          }
+        }
       }
       if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
         if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;

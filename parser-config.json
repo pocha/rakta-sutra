@@ -322,7 +322,7 @@
     { "source": "^specifications?:", "flags": "i" },
     { "source": "^conditions\\s*of\\s*reporting", "flags": "i" },
     { "source": "^test\\s*name\\s*$", "flags": "i" },
-    { "source": "^investigation\\s*\\/?\\s*method", "flags": "i" }
+    { "source": "^investigation\\s*\\/?\\s*method\\s*$", "flags": "i" }
   ],
   "datePatterns": [
     { "source": "\\b(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})\\b", "flags": "", "day": 1, "month": 2, "year": 3, "monthIsNumeric": true },
