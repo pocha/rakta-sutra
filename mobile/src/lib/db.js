@@ -68,6 +68,18 @@ const SCHEMA = `
     value TEXT
   );
 
+  -- The push notification itself only ever carries a generic "you have a
+  -- reminder" alert (see /functions) — this logs the real text, read from
+  -- the reminders table, only when the user taps the notification and the
+  -- app is actually running to look it up. Untapped/dismissed notifications
+  -- are not logged (see mobile/README.md's Notifications section).
+  CREATE TABLE IF NOT EXISTS notification_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reminder_id INTEGER,
+    text TEXT NOT NULL,
+    tapped_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_reports_profile ON reports(profile_id, report_date);
   CREATE INDEX IF NOT EXISTS idx_markers_canonical ON markers(canonical);
   CREATE INDEX IF NOT EXISTS idx_journal_profile ON journal_entries(profile_id, entry_date);
@@ -425,6 +437,16 @@ export async function getReminderById(id) {
 // A tiny key/value table for device-scoped settings that aren't tied to any
 // profile — currently just the stable deviceId used to register this
 // install with the reminder-push backend.
+// ── Notification history ─────────────────────────────────────────────────────
+export async function logNotificationTap(reminderId, text) {
+  await db.run('INSERT INTO notification_log (reminder_id, text) VALUES (?, ?)', [reminderId, text]);
+  await persist();
+}
+
+export async function listNotificationLog() {
+  return (await db.query('SELECT * FROM notification_log ORDER BY tapped_at DESC')).values;
+}
+
 export async function getOrCreateDeviceId() {
   const rows = (await db.query('SELECT value FROM device_settings WHERE key = ?', ['deviceId'])).values;
   if (rows[0]) return rows[0].value;

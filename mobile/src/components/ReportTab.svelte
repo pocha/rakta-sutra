@@ -353,7 +353,7 @@
     font-weight: 600;
   }
   .col-marker { flex: 1; min-width: 0; }
-  .col-range { width: 80px; flex-shrink: 0; }
+  .col-range { width: 62px; flex-shrink: 0; text-align: center; }
   .col-value-nav {
     width: 140px;
     flex-shrink: 0;
@@ -417,10 +417,10 @@
   }
 
   .marker-cell { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
-  .marker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .marker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 0.86rem; }
   .info-btn { flex-shrink: 0; background: none; border: none; color: var(--muted); padding: 2px; display: none; }
   .marker-cell.truncated .info-btn { display: flex; }
-  .range-cell { width: 80px; flex-shrink: 0; font-size: 0.78rem; color: var(--muted-lt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .range-cell { width: 62px; flex-shrink: 0; font-size: 0.78rem; color: var(--muted-lt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
 
   input[type='number'] {
     width: 100%; max-width: 90px; box-sizing: border-box;

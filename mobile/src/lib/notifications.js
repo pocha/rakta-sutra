@@ -2,11 +2,11 @@
 // Reminder delivery: scheduling now lives server-side (Cloud Tasks for
 // one-time reminders, a Cloud Scheduler sweep for recurring ones — see
 // /functions) because on-device AlarmManager scheduling proved unreliable.
-// This file only (a) talks to that backend to schedule/cancel a push, and
-// (b) shows a local notification immediately once a push actually arrives
-// (see push.js). Reminder text itself never leaves the device — only the
-// reminder's own id (as an opaque notificationId) and its remind-at time/
-// recurrence rule are sent.
+// This file only talks to that backend to schedule/cancel a push. Reminder
+// text itself never leaves the device — only the reminder's own id (as an
+// opaque notificationId) and its remind-at time/recurrence rule are sent;
+// the push that eventually arrives carries a fixed generic alert, not the
+// text (see /functions and push.js).
 // ─────────────────────────────────────────────────────────────────────────────
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { getOrCreateDeviceId } from './db.js';
@@ -38,14 +38,18 @@ async function callFunction(name, payload) {
   return res.json();
 }
 
-// Fires a local notification right now — used when a push arrives (push.js)
-// and by nothing else; there's no "at a future time" local scheduling left.
-export async function showReminderNow(text) {
+// Fires a local notification right now — used when a push arrives while the
+// app is in the foreground (push.js), since the OS doesn't auto-display FCM
+// alerts there. `notificationId` is stashed in `extra` so a tap on *this*
+// notification (a separate tap-event system from FCM's, see push.js) can
+// still be traced back to the reminder.
+export async function showReminderNow(text, notificationId) {
   await LocalNotifications.schedule({
     notifications: [{
       id: Math.floor(Math.random() * 2_147_483_647),
       title: 'Track Blood',
       body: text,
+      extra: { notificationId },
     }],
   });
 }

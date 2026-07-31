@@ -1,15 +1,26 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// FCM registration + receiving. The push itself only ever carries an opaque
-// notificationId (the reminder's own SQLite row id) — never reminder text.
-// On receipt, look the id up locally and show a normal notification now (see
-// showReminderNow in notifications.js). Scheduling the push in the first
-// place happens server-side, triggered from notifications.js's
-// scheduleReminder/cancelReminder.
+// FCM registration + receiving. The push itself only ever carries a fixed,
+// generic alert (see /functions) — never the actual reminder text. On
+// Android/iOS, a killed or backgrounded app has the OS display that generic
+// alert natively, no app code involved. This file only needs to handle two
+// cases where the app *is* running: showing it via a local notification in
+// the foreground (the OS doesn't auto-display there), and — when the user
+// taps the notification — looking up the real text locally, logging it to
+// the in-app notification history (see notifications.js/db.js), and
+// navigating straight to that history screen.
+//
+// Foreground re-display goes through @capacitor/local-notifications, which
+// has its own separate tap-event system from FCM's — so both
+// notificationActionPerformed (FCM, background/killed taps) and
+// localNotificationActionPerformed (the foreground re-display) need to be
+// handled, funneling into the same lookup-and-navigate logic.
 // ─────────────────────────────────────────────────────────────────────────────
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
-import { getOrCreateDeviceId, getReminderById } from './db.js';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { getOrCreateDeviceId, getReminderById, logNotificationTap } from './db.js';
 import { showReminderNow } from './notifications.js';
 import { logAnalyticsEvent } from './analytics.js';
+import { openScreen } from './state.svelte.js';
 
 const FUNCTIONS_BASE = 'https://asia-south1-track-blood.cloudfunctions.net';
 
@@ -22,13 +33,17 @@ async function registerDeviceToken(token) {
   });
 }
 
-async function handleDataMessage(notification) {
-  const notificationId = notification?.data?.notificationId;
+async function handleForegroundNotification(notification) {
+  await showReminderNow(notification?.body || 'You have a reminder', notification?.data?.notificationId);
+  await logAnalyticsEvent('notification_sent');
+}
+
+async function handleNotificationTap(notificationId) {
   if (!notificationId) return;
   const reminder = await getReminderById(Number(notificationId));
   if (!reminder) return;
-  await showReminderNow(reminder.text);
-  await logAnalyticsEvent('notification_sent');
+  await logNotificationTap(reminder.id, reminder.text);
+  openScreen('notifications');
 }
 
 export async function initPush() {
@@ -50,6 +65,16 @@ export async function initPush() {
   });
 
   await FirebaseMessaging.addListener('notificationReceived', async (event) => {
-    await handleDataMessage(event.notification).catch((err) => console.error('[push] handling failed:', err));
+    await handleForegroundNotification(event.notification).catch((err) => console.error('[push] foreground handling failed:', err));
+  });
+
+  await FirebaseMessaging.addListener('notificationActionPerformed', async (event) => {
+    await handleNotificationTap(event.notification?.data?.notificationId)
+      .catch((err) => console.error('[push] tap handling failed:', err));
+  });
+
+  await LocalNotifications.addListener('localNotificationActionPerformed', async (event) => {
+    await handleNotificationTap(event.notification?.extra?.notificationId)
+      .catch((err) => console.error('[push] local notification tap handling failed:', err));
   });
 }

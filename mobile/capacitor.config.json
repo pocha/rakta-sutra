@@ -12,6 +12,9 @@
     "LocalNotifications": {
       "smallIcon": "ic_stat_icon",
       "iconColor": "#e63946"
+    },
+    "FirebaseMessaging": {
+      "presentationOptions": []
     }
   }
 }

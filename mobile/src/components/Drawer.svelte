@@ -56,6 +56,9 @@
     <div class="divider"></div>
 
     <div class="section">
+      <button class="drawer-item" onclick={() => openScreen('notifications')}>
+        <span class="icon"><Icon name="bell" size={19} /></span> Notifications
+      </button>
       <button class="drawer-item" onclick={() => openScreen('backup')}>
         <span class="icon"><Icon name="archive" size={19} /></span> Backup
       </button>

@@ -17,6 +17,7 @@
   let text = $state('');
   let clarifyQuestion = $state('');
   let clarifyAnswer = $state('');
+  let saving = $state(false);
 
   onMount(async () => {
     await load();
@@ -64,18 +65,23 @@
       return;
     }
 
-    if (editingId) {
-      await cancelReminder(editingId);
-      await db.updateReminder(editingId, text.trim(), parsed.remindAt, parsed.recurrence, editingId);
-      await scheduleReminder(editingId, text.trim(), parsed.remindAt, parsed.recurrence);
-    } else {
-      const id = await db.addReminder(profileId, text.trim(), parsed.remindAt, parsed.recurrence, null);
-      await scheduleReminder(id, text.trim(), parsed.remindAt, parsed.recurrence);
-      await db.updateReminder(id, text.trim(), parsed.remindAt, parsed.recurrence, id);
+    saving = true;
+    try {
+      if (editingId) {
+        await cancelReminder(editingId);
+        await db.updateReminder(editingId, text.trim(), parsed.remindAt, parsed.recurrence, editingId);
+        await scheduleReminder(editingId, text.trim(), parsed.remindAt, parsed.recurrence);
+      } else {
+        const id = await db.addReminder(profileId, text.trim(), parsed.remindAt, parsed.recurrence, null);
+        await scheduleReminder(id, text.trim(), parsed.remindAt, parsed.recurrence);
+        await db.updateReminder(id, text.trim(), parsed.remindAt, parsed.recurrence, id);
+      }
+      modalOpen = false;
+      await load();
+      await refreshPermission();
+    } finally {
+      saving = false;
     }
-    modalOpen = false;
-    await load();
-    await refreshPermission();
   }
 
   async function remove(reminder) {
@@ -154,8 +160,10 @@
           <input class="input" placeholder="e.g. tomorrow at 9am" bind:value={clarifyAnswer} />
         {/if}
         <div class="sheet-actions">
-          <button class="btn btn-ghost" onclick={() => (modalOpen = false)}>Cancel</button>
-          <button class="btn btn-primary" onclick={submit}>{clarifyQuestion ? 'Continue' : 'Save'}</button>
+          <button class="btn btn-ghost" disabled={saving} onclick={() => (modalOpen = false)}>Cancel</button>
+          <button class="btn btn-primary" disabled={saving} onclick={submit}>
+            {saving ? 'Saving…' : (clarifyQuestion ? 'Continue' : 'Save')}
+          </button>
         </div>
       </div>
     </div>

@@ -2,9 +2,14 @@
 // opaque notificationId (the reminder's own local SQLite row id) plus a
 // remind-at time/recurrence rule (metadata, not content) ever reach here.
 // One-time reminders are scheduled as a Cloud Task; recurring reminders are
-// tracked in Firestore and swept periodically. Either way, sending the push
-// itself only ever carries {notificationId} — the app looks up the actual
-// text locally when it receives it.
+// tracked in Firestore and swept periodically.
+//
+// The push itself carries a fixed, generic alert ("You have a reminder") —
+// never the actual reminder text — so the OS can display it natively even
+// when the app is fully killed (no app code needs to run for that). The
+// real text only ever surfaces on-device: the app looks it up locally by
+// notificationId (still attached as `data`) when the user taps the
+// notification, and logs it to the in-app notification history then.
 import {setGlobalOptions} from "firebase-functions";
 import {onRequest, Request} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
@@ -53,6 +58,9 @@ function withCors(
   };
 }
 
+const GENERIC_ALERT_TITLE = "Track Blood";
+const GENERIC_ALERT_BODY = "You have a reminder";
+
 async function pushToDevice(deviceId: string, notificationId: string | number) {
   const deviceDoc = await db.collection("devices").doc(deviceId).get();
   const fcmToken = deviceDoc.data()?.fcmToken;
@@ -62,11 +70,15 @@ async function pushToDevice(deviceId: string, notificationId: string | number) {
   }
   await getMessaging().send({
     token: fcmToken,
+    notification: {title: GENERIC_ALERT_TITLE, body: GENERIC_ALERT_BODY},
     data: {notificationId: String(notificationId)},
-    android: {priority: "high"},
+    android: {
+      priority: "high",
+      notification: {icon: "ic_stat_icon", color: "#e63946"},
+    },
     apns: {
-      headers: {"apns-priority": "10", "apns-push-type": "background"},
-      payload: {aps: {"content-available": 1}},
+      headers: {"apns-priority": "10"},
+      payload: {aps: {alert: {title: GENERIC_ALERT_TITLE, body: GENERIC_ALERT_BODY}}},
     },
   });
 }
