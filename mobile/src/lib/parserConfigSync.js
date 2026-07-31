@@ -16,6 +16,7 @@ import bundledConfig from '../../../parser-config.json';
 
 const CACHE_PATH = 'parser-config.json';
 const REMOTE_URL = 'https://raw.githubusercontent.com/pocha/rakta-sutra/refs/heads/main/parser-config.json';
+const FETCH_TIMEOUT_MS = 5000;
 
 function isValidConfig(c) {
   return !!(c && c.keywordMap && c.markerGroups && c.valueLimits && c.refRanges && c.layout);
@@ -28,9 +29,21 @@ async function readCachedConfig() {
   return cached;
 }
 
+// AbortSignal.timeout() is a newer API that may not exist on the older end
+// of our iOS 15.0 deployment target — build the timeout by hand with
+// AbortController instead, which has much wider WebKit support.
+function fetchWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`timed out after ${ms}ms`)), ms);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export async function initParserConfig() {
   try {
-    const res = await fetch(REMOTE_URL);
+    // A hung request here (flaky network, a captive portal, DNS weirdness)
+    // must never block app startup indefinitely — bound it and fall through
+    // to cache/bundled on timeout same as any other fetch failure.
+    const res = await fetchWithTimeout(REMOTE_URL, FETCH_TIMEOUT_MS);
     if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
     const remote = await res.json();
     if (!isValidConfig(remote)) throw new Error('fetched config failed shape validation');
