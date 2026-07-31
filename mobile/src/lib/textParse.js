@@ -6,14 +6,24 @@
 import * as chrono from 'chrono-node';
 import { KEYWORD_MAP, REF_RANGES } from './parser.js';
 
-const CANONICALS = Object.keys(REF_RANGES);
-
 function compactNorm(text) {
   return text.replace(/\x00/g, '').toUpperCase().replace(/AE/g, 'E').replace(/[^A-Z0-9]/g, '');
 }
 
-const KEYWORD_ENTRIES = Object.entries(KEYWORD_MAP).sort(([a], [b]) => b.length - a.length);
-const CANONICAL_COMPACT = CANONICALS.map(c => [c, compactNorm(c)]);
+// KEYWORD_MAP/REF_RANGES are `null` until configureParser() runs (see
+// main.js → parserConfigSync.js), which happens asynchronously, well after
+// this module's top-level code has already been evaluated as part of
+// App.svelte's static import graph. Building these indexes eagerly here
+// used to crash every launch (Object.keys(null)) — build them lazily on
+// first real use instead, by which point configureParser() has resolved.
+let KEYWORD_ENTRIES = null;
+let CANONICAL_COMPACT = null;
+
+function ensureIndexes() {
+  if (KEYWORD_ENTRIES) return;
+  KEYWORD_ENTRIES = Object.entries(KEYWORD_MAP).sort(([a], [b]) => b.length - a.length);
+  CANONICAL_COMPACT = Object.keys(REF_RANGES).map(c => [c, compactNorm(c)]);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Marker recognition in free text — unlike matchLine() (which picks one
@@ -22,6 +32,7 @@ const CANONICAL_COMPACT = CANONICALS.map(c => [c, compactNorm(c)]);
 // recall for search than a wrong single guess.
 // ─────────────────────────────────────────────────────────────────────────────
 export function extractMarkersFromText(text) {
+  ensureIndexes();
   const compact = compactNorm(text);
   if (!compact) return [];
   const found = new Set();

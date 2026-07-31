@@ -54,11 +54,24 @@ export async function restoreFromZipBase64(zipBase64) {
   const { reminders: currentReminders } = await db.exportAllData();
   for (const r of currentReminders) await cancelReminder(r.id).catch(() => {});
 
-  // Replace stored report files with the ones from the backup.
+  // Replace stored report files with the ones from the backup. A report's
+  // file can legitimately be absent from the zip — createBackupZip() itself
+  // skips (warns, doesn't fail) any report whose source PDF was already
+  // missing on disk at backup time — so a missing zip entry here must be
+  // skipped the same way, not thrown. Letting it throw used to abort this
+  // loop entirely, which (a) left some reports' files unrestored with no
+  // recovery and (b) skipped db.importAllData() below altogether, since it's
+  // never reached — leaving the on-disk files and the database in two
+  // different, inconsistent states.
   await Filesystem.rmdir({ path: REPORTS_DIR, directory: Directory.Data, recursive: true }).catch(() => {});
   const filesFolder = zip.folder('files');
   for (const report of data.reports) {
-    const base64 = await filesFolder.file(report.file_path.replace(`${REPORTS_DIR}/`, '')).async('base64');
+    const entry = filesFolder.file(report.file_path.replace(`${REPORTS_DIR}/`, ''));
+    if (!entry) {
+      console.warn(`Skipping missing report file during restore: ${report.file_path}`);
+      continue;
+    }
+    const base64 = await entry.async('base64');
     await Filesystem.writeFile({ path: report.file_path, data: base64, directory: Directory.Data, recursive: true });
   }
 

@@ -124,9 +124,34 @@ npx cap run ios
 # Android — the app's JS console.log output plus Java crash output:
 adb logcat -s "Capacitor/Console:V" chromium:V AndroidRuntime:E
 
-# iOS — no CLI equivalent for a real device; use Xcode's Devices and
-# Simulators window → select the device → "Open Console", then filter by
-# process:App (the binary's PRODUCT_NAME, not the display name "Track Blood")
+# Android — scoped to just this app's own process (cuts out system-wide
+# noise entirely, so it stays readable even with no tag filter at all).
+# Clear the buffer and relaunch first so you only see the fresh run:
+adb logcat -c
+adb shell am force-stop fyi.pocha.trackblood
+adb shell monkey -p fyi.pocha.trackblood -c android.intent.category.LAUNCHER 1
+adb logcat --pid=$(adb shell pidof -s fyi.pocha.trackblood)
+
+# Android — wider net, for a blank/white screen with nothing in the above
+# (e.g. a native crash so early the process/PID above never even appears):
+adb logcat | grep -iE "trackblood|capacitor|chromium|AndroidRuntime|FATAL"
+
+# Android — full interactive JS console + DevTools (inspect DOM, set
+# breakpoints, see network requests) instead of just log lines: with the
+# app running on the device/emulator, open chrome://inspect in desktop
+# Chrome, and the WebView should show up under "Remote Target" — click
+# "inspect" to get a full DevTools window.
+
+# iOS real device — no first-party CLI, but if libimobiledevice is
+# installed (`brew install libimobiledevice`), this streams the device's
+# syslog without opening Xcode:
+idevicesyslog | grep -iE "trackblood|App|fatal"
+# Otherwise use Xcode's Devices and Simulators window → select the device →
+# "Open Console", then filter by process:App (the binary's PRODUCT_NAME, not
+# the display name "Track Blood").
+
+# iOS simulator — CLI log streaming works directly, no Xcode window needed:
+xcrun simctl spawn booted log stream --level debug --predicate 'process == "App"'
 ```
 
 ### Deploy

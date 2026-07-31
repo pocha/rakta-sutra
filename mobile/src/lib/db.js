@@ -107,12 +107,30 @@ export async function initDb() {
     console.log('[initDb] initWebStore done.');
   }
 
-  console.log('[initDb] checking isConnection…');
+  // A window.location.reload() (e.g. after restoring a backup) reloads the
+  // WebView but not the native layer — the JS-side plugin's in-memory
+  // connection-tracking map gets reset to empty, while the native side keeps
+  // the actual open SQLite connection alive underneath it. isConnection()
+  // alone then lies (reports false), so createConnection() below throws
+  // "Connection trackblood already exists" — a known capacitor-community/
+  // sqlite webview-reload issue. checkConnectionsConsistency() reconciles the
+  // JS-side map against what's really open natively before we ask; the
+  // try/catch is a second line of defense in case that reconciliation still
+  // races with a very recent reload.
+  console.log('[initDb] checking connection consistency…');
+  await sqlite.checkConnectionsConsistency();
   const isConn = (await sqlite.isConnection(DB_NAME, false)).result;
   console.log('[initDb] isConnection:', isConn, '— opening connection…');
-  db = isConn
-    ? await sqlite.retrieveConnection(DB_NAME, false)
-    : await sqlite.createConnection(DB_NAME, false, 'no-encryption', 1, false);
+  if (isConn) {
+    db = await sqlite.retrieveConnection(DB_NAME, false);
+  } else {
+    try {
+      db = await sqlite.createConnection(DB_NAME, false, 'no-encryption', 1, false);
+    } catch (err) {
+      console.warn('[initDb] createConnection failed (likely stale native connection after reload), retrieving instead:', err);
+      db = await sqlite.retrieveConnection(DB_NAME, false);
+    }
+  }
 
   console.log('[initDb] db.open()…');
   await db.open();
@@ -462,6 +480,19 @@ export async function getOrCreateDeviceId() {
   await db.run('INSERT INTO device_settings (key, value) VALUES (?, ?)', ['deviceId', deviceId]);
   await persist();
   return deviceId;
+}
+
+export async function shouldShowMultiSelectHint() {
+  const rows = (await db.query('SELECT value FROM device_settings WHERE key = ?', ['hideMultiSelectHint'])).values;
+  return !rows[0];
+}
+
+export async function dismissMultiSelectHint() {
+  await db.run(
+    `INSERT INTO device_settings (key, value) VALUES ('hideMultiSelectHint', '1')
+     ON CONFLICT(key) DO UPDATE SET value = '1'`
+  );
+  await persist();
 }
 
 // ── Backup / restore ─────────────────────────────────────────────────────────

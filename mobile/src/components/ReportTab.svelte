@@ -1,7 +1,9 @@
 <script>
   import { onMount, tick } from 'svelte';
+  import { Capacitor } from '@capacitor/core';
   import { FilePicker } from '@capawesome/capacitor-file-picker';
   import * as db from '../lib/db.js';
+  import multiSelectHintImg from '../assets/multiselect-hint.jpg';
   import { parsePDF, MARKER_GROUPS, REF_RANGES, parseRefRange } from '../lib/parser.js';
   import { saveReportFile, openReportFile } from '../lib/reports.js';
   import { appState } from '../lib/state.svelte.js';
@@ -24,6 +26,8 @@
 
   let menuOpen = $state(false);            // FAB action menu
   let addMarkerModalOpen = $state(false);
+  let multiSelectHintOpen = $state(false);
+  let hideMultiSelectHintChecked = $state(false);
   let addCanonical = $state('');            // selected marker (empty until picked from suggestions)
   let addQuery = $state('');                // what the user is typing before picking one
   let addValue = $state('');
@@ -142,6 +146,25 @@
 
   async function pickAndUpload() {
     menuOpen = false;
+    // The multi-select hint is Android-only: iOS routes every cloud provider
+    // (Dropbox, Drive, iCloud) through one system Files browser where
+    // Apple's own "Select" affordance works consistently, so there's no
+    // equivalent quirk to explain there.
+    if (Capacitor.getPlatform() === 'android' && await db.shouldShowMultiSelectHint()) {
+      hideMultiSelectHintChecked = false;
+      multiSelectHintOpen = true;
+      return;
+    }
+    await runPickAndUpload();
+  }
+
+  async function dismissMultiSelectHintAndUpload() {
+    multiSelectHintOpen = false;
+    if (hideMultiSelectHintChecked) await db.dismissMultiSelectHint();
+    await runPickAndUpload();
+  }
+
+  async function runPickAndUpload() {
     busy = true;
     statusMsg = 'Opening file picker…';
     try {
@@ -333,6 +356,29 @@
       </div>
     </div>
   {/if}
+
+  {#if multiSelectHintOpen}
+    <div class="overlay" role="button" tabindex="0" onclick={() => (multiSelectHintOpen = false)}
+         onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (multiSelectHintOpen = false)}>
+      <div class="sheet" role="presentation" onclick={e => e.stopPropagation()} onkeydown={e => e.stopPropagation()}>
+        <h2>Tip: selecting multiple reports</h2>
+        <p class="muted">
+          If your reports are in Dropbox, Google Drive, or another cloud app, tapping
+          a file's name usually imports just that one. Tap the small arrow icon on
+          the right of the source instead — that opens it in a view that lets you
+          select several files at once.
+        </p>
+        <img class="hint-img" src={multiSelectHintImg} alt="Tap the arrow icon on the right of a source, not its name, to enable multi-select" />
+        <label class="hint-checkbox">
+          <input type="checkbox" bind:checked={hideMultiSelectHintChecked} />
+          Don't show this again
+        </label>
+        <div class="sheet-actions">
+          <button class="btn btn-primary btn-block" onclick={dismissMultiSelectHintAndUpload}>Continue</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -486,4 +532,6 @@
     width: 100%; text-align: left; padding: 9px 10px; background: none; border: none; color: var(--text); border-radius: 8px;
   }
   .suggestions li button:active { background: var(--bg); }
+  .hint-img { width: 100%; border-radius: var(--radius-md); margin: 10px 0; display: block; }
+  .hint-checkbox { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 14px; }
 </style>
