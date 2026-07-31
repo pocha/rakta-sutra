@@ -72,7 +72,7 @@ const SCHEMA = `
   -- reminder" alert (see /functions) — this logs the real text, read from
   -- the reminders table, only when the user taps the notification and the
   -- app is actually running to look it up. Untapped/dismissed notifications
-  -- are not logged (see mobile/README.md's Notifications section).
+  -- are not logged (see the root README's backend Architecture section).
   CREATE TABLE IF NOT EXISTS notification_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     reminder_id INTEGER,
