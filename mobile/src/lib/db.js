@@ -360,12 +360,14 @@ export async function getConsolidatedMatrix(profileId) {
   const rows = (await db.query(
     `SELECT r.report_date as date, m.canonical, m.value, m.ref_range
      FROM markers m JOIN reports r ON r.id = m.report_id
-     WHERE r.profile_id = ? ORDER BY r.report_date`,
+     WHERE r.profile_id = ? ORDER BY r.report_date DESC`,
     [profileId]
   )).values;
 
+  // Most-recent-first, both for picking which 3 dates to include and for the
+  // resulting column order — readers expect the newest report on the left.
   const allDates = [...new Set(rows.map(r => r.date))];
-  const dates = allDates.slice(-MAX_SHARED_REPORT_DATES);
+  const dates = allDates.slice(0, MAX_SHARED_REPORT_DATES);
   const markers = {};
   const refRanges = {};
   for (const row of rows) {
