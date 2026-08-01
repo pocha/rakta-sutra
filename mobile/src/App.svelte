@@ -100,16 +100,25 @@
     flex-shrink: 0;
     z-index: 5;
   }
-  .topbar h1 { font-size: 1.35rem; font-weight: 800; margin: 0; color: var(--accent-dim); }
-  .logo { width: 40px; height: auto; object-fit: contain; margin-top: -20px; }
+  .topbar h1 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--accent-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .logo { width: 28px; height: auto; object-fit: contain; margin-top: -14px; }
   .icon-btn {
     background: none;
     border: none;
     color: var(--text);
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     line-height: 1;
     padding: 4px 6px;
     border-radius: 8px;
+    flex-shrink: 0;
   }
   .icon-btn:active { background: var(--bg); }
   .icon-btn:disabled { opacity: 0.4; }
