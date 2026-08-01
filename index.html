@@ -4,6 +4,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Track Blood — Personal Blood Health Tracking</title>
+  <meta name="description" content="Track Blood is a free, local-first blood report tracker for iOS and Android. Upload PDF reports, see how your parameters trend over time, journal health notes, and set reminders — your data never leaves your device.">
+  <link rel="canonical" href="https://track-blood.pocha.fyi/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://track-blood.pocha.fyi/">
+  <meta property="og:title" content="Track Blood — Personal Blood Health Tracking">
+  <meta property="og:description" content="Free, local-first blood report tracker for iOS and Android. Upload PDFs, track trends, journal notes, set reminders — your data never leaves your device.">
+  <meta property="og:image" content="https://track-blood.pocha.fyi/logo-icon.png">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Track Blood — Personal Blood Health Tracking">
+  <meta name="twitter:description" content="Free, local-first blood report tracker for iOS and Android. Your data never leaves your device.">
+  <meta name="twitter:image" content="https://track-blood.pocha.fyi/logo-icon.png">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Track Blood",
+    "url": "https://track-blood.pocha.fyi/",
+    "description": "Free, local-first blood report tracker. Upload PDF blood test reports, see parameters trend over time, journal health notes, and set reminders — data is processed on-device and never uploaded to a server.",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "iOS, Android, Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
   <style>
     :root {
       --bg:         #090909;
@@ -245,6 +275,29 @@
       transform: translateY(-3px);
     }
 
+    /* ── FAQ ─────────────────────────────────────────────── */
+    .faq {
+      padding: 64px 24px;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .faq-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 26px;
+      margin-bottom: 14px;
+    }
+    .faq-item h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .faq-item p {
+      color: var(--muted-lt);
+      font-size: 0.92rem;
+    }
+
     .feat-icon {
       width: 46px;
       height: 46px;
@@ -475,6 +528,120 @@
     }
     .store-badge-img:hover { transform: scale(1.03); }
 
+    .store-badge-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      display: inline-block;
+      line-height: 0;
+    }
+
+    /* ── Download steps modal ─────────────────────────────── */
+    .dl-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .dl-modal-overlay.open { display: flex; }
+    .dl-modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      max-width: 420px;
+      width: 100%;
+      padding: 28px 26px;
+      position: relative;
+    }
+    .dl-modal h3 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+    .dl-modal p.dl-sub {
+      color: var(--muted-lt);
+      font-size: 0.88rem;
+      margin-bottom: 20px;
+    }
+    .dl-modal-close {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--muted-lt);
+      font-size: 1.3rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .dl-modal-close:hover { color: var(--text); }
+    .dl-step {
+      display: none;
+      gap: 14px;
+      min-height: 96px;
+    }
+    .dl-step.active { display: flex; }
+    .dl-step-num {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--red);
+      color: white;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dl-step-body { flex: 1; padding-top: 2px; }
+    .dl-step-body p { font-size: 0.88rem; color: var(--muted-lt); margin-top: 4px; }
+    .dl-step-link {
+      display: inline-block;
+      margin-top: 10px;
+      background: var(--red);
+      color: white;
+      text-decoration: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .dl-step-link:hover { background: var(--red-dim); }
+    .dl-step-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+    .dl-step-nav-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .dl-step-nav-btn:hover:not(:disabled) { background: var(--border); }
+    .dl-step-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .dl-step-indicator { font-size: 0.8rem; color: var(--muted-lt); }
+
     /* ── Try it on browser ────────────────────────────────── */
     .try-browser {
       display: flex;
@@ -512,7 +679,7 @@
     <div class="hero-row">
       <div class="hero-brand">
         <img class="hero-logo" src="logo-icon.png" alt="Track Blood logo">
-        <h1 class="hero-brand-name">Track Blood</h1>
+        <p class="hero-brand-name">Track Blood</p>
       </div>
 
       <div class="hero-content">
@@ -523,17 +690,83 @@
           updates &amp; set reminders.
         </p>
 
-        <div class="store-badges">
-          <a href="https://testflight.apple.com/join/REPLACE_ME" target="_blank" rel="noopener">
+        <div class="store-badges" id="store-badges">
+          <button class="store-badge-btn" id="ios-download-btn" type="button" style="display:none">
             <img class="store-badge-img" src="download-in-app-store.webp" alt="Download on the App Store">
-          </a>
-          <a id="android-download-btn" href="https://firebasestorage.googleapis.com/v0/b/track-blood.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=1.1.5" download="track-blood.apk">
+          </button>
+          <button class="store-badge-btn" id="android-download-btn" type="button" style="display:none">
             <img style="margin-top: -20px" class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
-          </a>
+          </button>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- ── iOS install steps modal ── -->
+  <div class="dl-modal-overlay" id="ios-modal-overlay">
+    <div class="dl-modal">
+      <button class="dl-modal-close" id="ios-modal-close" aria-label="Close">&times;</button>
+      <h3>Install Track Blood on iOS</h3>
+      <p class="dl-sub">The app is distributed via Apple TestFlight (beta testing) — two quick steps:</p>
+      <div class="dl-step active" data-step="1">
+        <div class="dl-step-num">1</div>
+        <div class="dl-step-body">
+          <strong>Install TestFlight</strong>
+          <p>Apple's official app for installing beta apps like Track Blood.</p>
+          <a class="dl-step-link" href="https://apps.apple.com/us/app/testflight/id899247664" target="_blank" rel="noopener">Get TestFlight</a>
+        </div>
+      </div>
+      <div class="dl-step" data-step="2">
+        <div class="dl-step-num">2</div>
+        <div class="dl-step-body">
+          <strong>Open the Track Blood invite link</strong>
+          <p>This adds Track Blood to TestFlight, where you can install and update it.</p>
+          <a class="dl-step-link" href="https://testflight.apple.com/join/775KrKXa" target="_blank" rel="noopener">Open Invite Link</a>
+        </div>
+      </div>
+      <div class="dl-step-nav">
+        <button class="dl-step-nav-btn" data-prev aria-label="Previous step">&lsaquo;</button>
+        <span class="dl-step-indicator" data-indicator></span>
+        <button class="dl-step-nav-btn" data-next aria-label="Next step">&rsaquo;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Android install steps modal ── -->
+  <div class="dl-modal-overlay" id="android-modal-overlay">
+    <div class="dl-modal">
+      <button class="dl-modal-close" id="android-modal-close" aria-label="Close">&times;</button>
+      <h3>Install Track Blood on Android</h3>
+      <p class="dl-sub">The app isn't on Google Play yet, so it installs directly as an APK file:</p>
+      <div class="dl-step active" data-step="1">
+        <div class="dl-step-num">1</div>
+        <div class="dl-step-body">
+          <strong>Download the APK</strong>
+          <p>Tap below to download the Track Blood installer file.</p>
+          <a class="dl-step-link" id="android-apk-link" href="https://firebasestorage.googleapis.com/v0/b/track-blood.firebasestorage.app/o/releases%2Flatest.apk?alt=media&v=1.1.5" download="track-blood.apk">Download APK</a>
+        </div>
+      </div>
+      <div class="dl-step" data-step="2">
+        <div class="dl-step-num">2</div>
+        <div class="dl-step-body">
+          <strong>Allow installs from this source</strong>
+          <p>Open the downloaded file. Since it isn't from the Play Store, Android will likely block it with a "For your security…" message — tap <strong>Settings</strong> on that screen, then allow installs from the app you used to open it (Chrome, Files, etc.).</p>
+        </div>
+      </div>
+      <div class="dl-step" data-step="3">
+        <div class="dl-step-num">3</div>
+        <div class="dl-step-body">
+          <strong>Install</strong>
+          <p>Go back and open the downloaded file again, then tap <strong>Install</strong>.</p>
+        </div>
+      </div>
+      <div class="dl-step-nav">
+        <button class="dl-step-nav-btn" data-prev aria-label="Previous step">&lsaquo;</button>
+        <span class="dl-step-indicator" data-indicator></span>
+        <button class="dl-step-nav-btn" data-next aria-label="Next step">&rsaquo;</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── Try it on browser ── -->
   <section class="try-browser">
@@ -622,6 +855,67 @@
       </span>
     </div>
   </div>
+
+  <!-- ── FAQ ── -->
+  <section class="faq">
+    <p class="section-label">FAQ</p>
+    <h2>Common questions</h2>
+
+    <div class="faq-item">
+      <h3>Is Track Blood free?</h3>
+      <p>Yes. Track Blood is completely free on iOS, Android, and the web, with no ads and no in-app purchases.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Does Track Blood upload my blood reports to a server?</h3>
+      <p>No. Track Blood is local-first — every PDF you upload is parsed and stored only on your own device. Nothing is sent to a server or cloud account.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Which labs and report formats does it support?</h3>
+      <p>Track Blood recognizes over 150 markers and their aliases across formats from labs including Thyrocare, SRL, Metropolis, Apollo, and Aarthi Scans, regardless of how each lab names or lays out its tests.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Is there an iOS and Android app, or just the website?</h3>
+      <p>All three — this website works fully in the browser, and native iOS and Android apps are available with the same local-first parsing, plus journaling and reminders.</p>
+    </div>
+    <div class="faq-item">
+      <h3>Can I export my data to share with a doctor?</h3>
+      <p>Yes — Track Blood generates a single CSV or PDF with every parameter across every report date, so a doctor can see trends at a glance instead of flipping through individual reports.</p>
+    </div>
+  </section>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Is Track Blood free?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. Track Blood is completely free on iOS, Android, and the web, with no ads and no in-app purchases." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Track Blood upload my blood reports to a server?",
+        "acceptedAnswer": { "@type": "Answer", "text": "No. Track Blood is local-first — every PDF you upload is parsed and stored only on your own device. Nothing is sent to a server or cloud account." }
+      },
+      {
+        "@type": "Question",
+        "name": "Which labs and report formats does it support?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Track Blood recognizes over 150 markers and their aliases across formats from labs including Thyrocare, SRL, Metropolis, Apollo, and Aarthi Scans, regardless of how each lab names or lays out its tests." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is there an iOS and Android app, or just the website?",
+        "acceptedAnswer": { "@type": "Answer", "text": "All three — this website works fully in the browser, and native iOS and Android apps are available with the same local-first parsing, plus journaling and reminders." }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I export my data to share with a doctor?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes — Track Blood generates a single CSV or PDF with every parameter across every report date, so a doctor can see trends at a glance instead of flipping through individual reports." }
+      }
+    ]
+  }
+  </script>
 
   <!-- ── Footer ── -->
   <footer>

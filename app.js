@@ -246,7 +246,20 @@ async function shareAsPDF() {
 // ─────────────────────────────────────────────────────────────────────────────
 const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-window.addEventListener('DOMContentLoaded', () => {
+// This module's top-level `await fetch(...)` above means the document can
+// finish parsing — and DOMContentLoaded can fire — before this script gets
+// around to registering the listener below, which would silently drop all
+// of this init code. Run immediately if the document is already past
+// "loading" instead of blindly waiting for an event that may never come.
+function onDomReady(fn) {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', fn);
+  } else {
+    fn();
+  }
+}
+
+onDomReady(() => {
   if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
 
   const dropzone  = document.getElementById('dropzone');
@@ -271,4 +284,81 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('shareBtn')?.addEventListener('click', shareAsPDF);
+
+  initDownloadButtons();
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Download button: show only the relevant platform's button (based on the
+// visiting device), and walk the user through that platform's install steps
+// in a small modal rather than linking straight out — TestFlight and a
+// sideloaded APK both need an extra step or two most people don't expect.
+// ─────────────────────────────────────────────────────────────────────────────
+function detectMobileOS() {
+  const ua = navigator.userAgent;
+  // iPadOS 13+ reports its UA as a Mac, but exposes multi-touch — the one
+  // reliable way to tell it apart from a real Mac.
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS) return 'ios';
+  if (/Android/.test(ua)) return 'android';
+  return null; // desktop or unrecognized — show both options
+}
+
+// Each modal's steps are one-at-a-time (tab-like), navigated via a single
+// prev/next pair per modal rather than showing the whole list at once.
+function showStep(overlay, index) {
+  const steps = overlay.querySelectorAll('.dl-step');
+  steps.forEach((step, i) => step.classList.toggle('active', i === index));
+  overlay.dataset.currentStep = index;
+  overlay.querySelector('[data-indicator]').textContent = `Step ${index + 1} of ${steps.length}`;
+  overlay.querySelector('[data-prev]').disabled = index === 0;
+  overlay.querySelector('[data-next]').disabled = index === steps.length - 1;
+}
+
+function initStepNav(overlay) {
+  overlay.querySelector('[data-prev]').addEventListener('click', () => {
+    const i = Number(overlay.dataset.currentStep);
+    if (i > 0) showStep(overlay, i - 1);
+  });
+  overlay.querySelector('[data-next]').addEventListener('click', () => {
+    const steps = overlay.querySelectorAll('.dl-step');
+    const i = Number(overlay.dataset.currentStep);
+    if (i < steps.length - 1) showStep(overlay, i + 1);
+  });
+}
+
+function openModal(overlay) {
+  showStep(overlay, 0);
+  overlay.classList.add('open');
+}
+function closeModal(overlay) { overlay.classList.remove('open'); }
+
+function initDownloadButtons() {
+  const iosBtn = document.getElementById('ios-download-btn');
+  const androidBtn = document.getElementById('android-download-btn');
+  const iosOverlay = document.getElementById('ios-modal-overlay');
+  const androidOverlay = document.getElementById('android-modal-overlay');
+
+  const os = detectMobileOS();
+  if (os === 'ios') {
+    iosBtn.style.display = '';
+  } else if (os === 'android') {
+    androidBtn.style.display = '';
+  } else {
+    iosBtn.style.display = '';
+    androidBtn.style.display = '';
+  }
+
+  iosBtn.addEventListener('click', () => openModal(iosOverlay));
+  androidBtn.addEventListener('click', () => openModal(androidOverlay));
+
+  for (const overlay of [iosOverlay, androidOverlay]) {
+    initStepNav(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(overlay); });
+  }
+  document.getElementById('ios-modal-close').addEventListener('click', () => closeModal(iosOverlay));
+  document.getElementById('android-modal-close').addEventListener('click', () => closeModal(androidOverlay));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeModal(iosOverlay); closeModal(androidOverlay); }
+  });
+}
