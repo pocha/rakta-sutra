@@ -1,0 +1,18 @@
+# Track Blood
+
+> Track Blood is a free, local-first blood report tracker for iOS, Android, and web. Upload PDF blood test reports, see every marker's trend over time, journal health notes, and set reminders — with no login, no account, and no server: all data stays on the user's own device.
+
+Track Blood parses PDF blood test reports (from Aarthi Scans, Centro Med, Innoquest (SG), Metropolis, Neuberg Anand, Orange Health, Tata 1mg, Thyrocare, and other labs) and recognizes 150+ distinct markers and their aliases, regardless of how a given lab names or formats a test. Extraction happens entirely on-device (in the browser for the web version, in-app for iOS/Android) — no report or health data is ever uploaded to a server.
+
+## Key facts
+
+- No login or account required; there is no user database or authentication of any kind.
+- All extracted data (marker values, trends, journal notes, reminders) is stored locally on the user's own device.
+- HIPAA compliance doesn't apply in the traditional sense, since the app never transmits or stores health data server-side — there is no server-side record to be compliant (or non-compliant) about.
+- Free on all platforms, no ads, no in-app purchases.
+- Available as a website (no install needed), and as native iOS and Android apps (which add journaling and reminders on top of report tracking).
+- Users can export a consolidated CSV or PDF of all their markers across every report date, e.g. to share with a doctor or paste into an AI assistant for a second opinion on trends.
+
+## Pages
+
+- [Track Blood](https://track-blood.pocha.fyi/): main site — upload a report, browse features, FAQ, and download links for iOS/Android.

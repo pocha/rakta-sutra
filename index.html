@@ -3,20 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Track Blood — Personal Blood Health Tracking</title>
-  <meta name="description" content="Track Blood is a free, local-first blood report tracker for iOS and Android. Upload PDF reports, see how your parameters trend over time, journal health notes, and set reminders — your data never leaves your device.">
+  <title>Track Blood — HIPAA Compliant Blood Report Tracker</title>
+  <meta name="description" content="Track Blood is a free, local-first, HIPAA compliant blood report tracker for iOS and Android. No login required — all data is saved locally on your device, a completely anonymous way to store your own health data. Upload PDF reports, see trends over time, journal health notes, and set reminders.">
   <link rel="canonical" href="https://track-blood.pocha.fyi/">
+  <link rel="icon" type="image/png" href="img/favicon.png">
+  <link rel="apple-touch-icon" href="img/favicon.png">
 
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://track-blood.pocha.fyi/">
-  <meta property="og:title" content="Track Blood — Personal Blood Health Tracking">
-  <meta property="og:description" content="Free, local-first blood report tracker for iOS and Android. Upload PDFs, track trends, journal notes, set reminders — your data never leaves your device.">
-  <meta property="og:image" content="https://track-blood.pocha.fyi/logo-icon.png">
+  <meta property="og:title" content="Track Blood — HIPAA Compliant Blood Report Tracker">
+  <meta property="og:description" content="Free, local-first, HIPAA compliant blood report tracker for iOS and Android. No login required — all data is saved locally on your device, a completely anonymous way to store your own health data.">
+  <meta property="og:image" content="https://track-blood.pocha.fyi/img/og.png">
 
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Track Blood — Personal Blood Health Tracking">
-  <meta name="twitter:description" content="Free, local-first blood report tracker for iOS and Android. Your data never leaves your device.">
-  <meta name="twitter:image" content="https://track-blood.pocha.fyi/logo-icon.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Track Blood — HIPAA Compliant Blood Report Tracker">
+  <meta name="twitter:description" content="Free, local-first, HIPAA compliant blood report tracker. No login required — all data is saved locally on your device, a completely anonymous way to store your own health data.">
+  <meta name="twitter:image" content="https://track-blood.pocha.fyi/img/og.png">
 
   <script type="application/ld+json">
   {
@@ -24,7 +26,7 @@
     "@type": "SoftwareApplication",
     "name": "Track Blood",
     "url": "https://track-blood.pocha.fyi/",
-    "description": "Free, local-first blood report tracker. Upload PDF blood test reports, see parameters trend over time, journal health notes, and set reminders — data is processed on-device and never uploaded to a server.",
+    "description": "Free, local-first, HIPAA compliant blood report tracker. No login required — all data is saved locally on your device, a completely anonymous way to store your own health data. Upload PDF blood test reports, see parameters trend over time, journal health notes, and set reminders.",
     "applicationCategory": "HealthApplication",
     "operatingSystem": "iOS, Android, Web",
     "offers": {
@@ -678,7 +680,7 @@
   <section class="hero">
     <div class="hero-row">
       <div class="hero-brand">
-        <img class="hero-logo" src="logo-icon.png" alt="Track Blood logo">
+        <img class="hero-logo" src="img/logo-icon.png" alt="Track Blood logo">
         <p class="hero-brand-name">Track Blood</p>
       </div>
 
@@ -686,16 +688,17 @@
         <h1>Track your blood<br>parameters over time</h1>
 
         <p class="hero-subtitle">
-          Keep all your blood reports at one place, journal health related
-          updates &amp; set reminders.
+          No login required — all your data is saved locally on your device,
+          a completely anonymous way to keep your blood reports in one place,
+          journal health related updates &amp; set reminders.
         </p>
 
         <div class="store-badges" id="store-badges">
           <button class="store-badge-btn" id="ios-download-btn" type="button" style="display:none">
-            <img class="store-badge-img" src="download-in-app-store.webp" alt="Download on the App Store">
+            <img class="store-badge-img" src="img/download-in-app-store.webp" alt="Download on the App Store">
           </button>
           <button class="store-badge-btn" id="android-download-btn" type="button" style="display:none">
-            <img style="margin-top: -20px" class="store-badge-img" src="get-it-on-google-play.jpg" alt="Get it on Google Play">
+            <img style="margin-top: -20px" class="store-badge-img" src="img/get-it-on-google-play.jpg" alt="Get it on Google Play">
           </button>
         </div>
       </div>
@@ -873,6 +876,10 @@
       <p>No. Track Blood is local-first — every PDF you upload is parsed and stored only on your own device. Nothing is sent to a server or cloud account.</p>
     </div>
     <div class="faq-item">
+      <h3>Is Track Blood HIPAA compliant?</h3>
+      <p>HIPAA compliance doesn't really apply to Track Blood in the traditional sense — that law governs healthcare providers, insurers, and the vendors who process patient data on their behalf. Track Blood never transmits or stores your data anywhere except your own device, so there's no server-side record of your health information to be compliant (or non-compliant) about in the first place. No login, no account, no cloud copy — your reports never leave the app.</p>
+    </div>
+    <div class="faq-item">
       <h3>Which labs and report formats does it support?</h3>
       <p>Track Blood recognizes over 150 markers and their aliases across formats from labs including Aarthi Scans, Centro Med, Innoquest (SG), Metropolis, Neuberg Anand, Orange Health, Tata 1mg, and Thyrocare, regardless of how each lab names or lays out its tests.</p>
     </div>
@@ -900,6 +907,11 @@
         "@type": "Question",
         "name": "Does Track Blood upload my blood reports to a server?",
         "acceptedAnswer": { "@type": "Answer", "text": "No. Track Blood is local-first — every PDF you upload is parsed and stored only on your own device. Nothing is sent to a server or cloud account." }
+      },
+      {
+        "@type": "Question",
+        "name": "Is Track Blood HIPAA compliant?",
+        "acceptedAnswer": { "@type": "Answer", "text": "HIPAA compliance doesn't really apply to Track Blood in the traditional sense — that law governs healthcare providers, insurers, and the vendors who process patient data on their behalf. Track Blood never transmits or stores your data anywhere except your own device, so there's no server-side record of your health information to be compliant (or non-compliant) about in the first place. No login, no account, no cloud copy — your reports never leave the app." }
       },
       {
         "@type": "Question",
