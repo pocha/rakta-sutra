@@ -116,6 +116,7 @@
 
 <div class="timeline-tab">
   <div class="search">
+    <span class="search-icon"><Icon name="search" size={16} /></span>
     <input class="input" placeholder="Search a marker (e.g. Vitamin D)…" bind:value={query}
            oninput={() => { if (activeMarker && query !== activeMarker) activeMarker = null; }} />
     {#if activeMarker}
@@ -225,7 +226,10 @@
 <style>
   .timeline-tab { height: 100%; min-height: 0; display: flex; flex-direction: column; position: relative; }
   .search { position: relative; padding: 12px 16px; flex-shrink: 0; }
-  .search input { padding-right: 34px; }
+  .search input { padding-right: 34px; padding-left: 38px; }
+  .search-icon {
+    position: absolute; left: 28px; top: 22px; color: var(--muted); display: flex; pointer-events: none;
+  }
   .search .clear {
     position: absolute; right: 26px; top: 22px; background: none; border: none; color: var(--muted);
   }

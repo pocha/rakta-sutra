@@ -77,7 +77,7 @@ button {
 /* ── Form controls ────────────────────────────────────────────────────── */
 .input, .select, .textarea {
   width: 100%;
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
   border-radius: var(--radius-sm);
