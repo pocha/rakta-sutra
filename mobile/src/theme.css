@@ -30,6 +30,7 @@ html, body {
   height: 100%;
   overflow: hidden; /* the document itself never scrolls — only designated inner containers do */
   overscroll-behavior: none; /* stop iOS/Android rubber-band bounce from swallowing the gesture */
+  touch-action: manipulation; /* disables double-tap-to-zoom app-wide (viewport's user-scalable=no is the other half of this) */
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;

@@ -4,6 +4,7 @@ import App from './App.svelte';
 import { initDb } from './lib/db.js';
 import { initPush } from './lib/push.js';
 import { initParserConfig } from './lib/parserConfigSync.js';
+import { showToast } from './lib/toast.svelte.js';
 
 // WKWebView (iOS) has historically lacked ReadableStream async iteration —
 // pdf.js's getTextContent() does `for await (const value of readableStream)`,
@@ -45,10 +46,15 @@ function withTimeout(promise, ms, label) {
 Promise.all([withTimeout(initDb(), 10000, 'initDb'), initParserConfig()])
   .then(() => {
     mount(App, { target: document.getElementById('app') });
+    // Flips index.html's global error/rejection handlers from "replace the
+    // blank screen" to "show a toast" — the app is genuinely usable past
+    // this point, so a full-screen takeover on some later, possibly minor
+    // error would be a worse experience than the error itself.
+    window.__appMounted = true;
+    window.__reportError = (message) => showToast(message, 'error');
     initPush().catch((err) => console.error('[main] initPush failed:', err));
   })
   .catch((err) => {
-    console.error('[main] initDb failed:', err);
-    document.getElementById('app').innerHTML =
-      `<pre style="color:#ff8891;background:#1a1a1a;padding:16px;white-space:pre-wrap;font-family:monospace;">Failed to start: ${err.message}\n\n${err.stack ?? ''}</pre>`;
+    console.error('[main] init failed:', err);
+    window.__showFatalError('The app failed to start.', `${err.message}\n\n${err.stack ?? ''}`);
   });

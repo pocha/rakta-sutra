@@ -2,11 +2,110 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Track Blood</title>
 </head>
 <body>
   <div id="app"></div>
+  <script src="/polyfills.js"></script>
+  <script>
+    // Older WebKit (iOS 17 and earlier) is missing various modern JS
+    // built-ins that our dependencies assume exist unconditionally — e.g.
+    // pdfjs-dist 6.x's own internal code does `typeof Iterator.prototype.join`
+    // at module-eval time, which throws a bare ReferenceError (not a missing-
+    // method check — the Iterator *global itself* doesn't exist) and crashes
+    // the whole bundle before Capacitor/Svelte ever mounts anything. The
+    // /polyfills.js tag above (core-js-bundle) covers that on the main
+    // thread. This must run as a classic script, not from inside main.js:
+    // classic scripts always finish before any <script type="module"> begins
+    // evaluating, and main.js's own static import graph (including
+    // pdfjs-dist, via parser.js) has already been evaluated by the time
+    // main.js's own body would run.
+    //
+    // The main thread isn't the only place this matters. pdfjs-dist creates
+    // a *real* Web Worker for parsing — a separate global scope that never
+    // sees window or anything loaded on the page, polyfills included. When
+    // that worker's own copy of the same top-level check throws, pdf.js
+    // silently falls back to re-running the parser on the main thread
+    // instead (visible in device logs as "Setting up fake worker") — which
+    // works, but blocks the UI for the whole parse, a bad user experience
+    // if someone imports several PDFs at once (a real first-run scenario).
+    // Rather than patch pdf.js's worker specifically, patch Worker itself:
+    // wrap every worker any current or future dependency creates so it loads
+    // /polyfills.js before its own script, regardless of which library
+    // creates it or what it does.
+    (function () {
+      var OriginalWorker = window.Worker;
+      if (!OriginalWorker) return; // no Worker support at all — nothing to patch
+
+      var polyfillsUrl = new URL('/polyfills.js', document.baseURI).href;
+
+      function wrappedWorkerUrl(scriptURL, isModule) {
+        var targetUrl = new URL(scriptURL, document.baseURI).href;
+        var src = isModule
+          ? 'import ' + JSON.stringify(polyfillsUrl) + ';\nimport ' + JSON.stringify(targetUrl) + ';\n'
+          : 'importScripts(' + JSON.stringify(polyfillsUrl) + ');\nimportScripts(' + JSON.stringify(targetUrl) + ');\n';
+        return URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+      }
+
+      window.Worker = function PatchedWorker(scriptURL, options) {
+        try {
+          var isModule = !!(options && options.type === 'module');
+          return new OriginalWorker(wrappedWorkerUrl(scriptURL, isModule), options);
+        } catch (err) {
+          // If wrapping fails for any reason, fall back to the original,
+          // unpatched behavior rather than breaking worker creation entirely.
+          console.error('[polyfill] Worker wrapping failed, using original script unpatched:', err);
+          return new OriginalWorker(scriptURL, options);
+        }
+      };
+    })();
+
+    // Global safety net: catch anything that would otherwise leave the user
+    // staring at a blank/frozen screen with no explanation. Before the app
+    // has mounted (main.js sets window.__appMounted once mount() succeeds),
+    // any uncaught error or promise rejection — from any source, not just
+    // the specific initDb/initParserConfig path main.js already guards —
+    // replaces the empty #app with a plain-language message and a reload
+    // button instead of nothing at all. After mount, the app is already
+    // usable, so a full-screen takeover would be worse than the bug itself;
+    // main.js wires window.__reportError to the existing toast system for
+    // that case instead.
+    window.__appMounted = false;
+
+    window.__showFatalError = function (message, detail) {
+      var app = document.getElementById('app');
+      if (!app) return;
+      var pre = detail ? '\n\n' + detail : '';
+      app.innerHTML =
+        '<div style="min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px 24px;text-align:center;font-family:-apple-system,sans-serif;">' +
+        '<div style="font-size:1.05rem;font-weight:700;color:#f0f0f0;">Something went wrong</div>' +
+        '<div style="font-size:0.9rem;color:#aaa;max-width:340px;">' + message + '</div>' +
+        '<button onclick="location.reload()" style="background:#e63946;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:0.9rem;font-weight:600;">Reload</button>' +
+        '<pre style="margin-top:8px;color:#666;font-size:0.72rem;white-space:pre-wrap;text-align:left;max-width:100%;overflow-x:auto;">' + pre + '</pre>' +
+        '</div>';
+    };
+
+    function handleGlobalFailure(message, detail) {
+      if (!window.__appMounted) {
+        window.__showFatalError(message, detail);
+        return;
+      }
+      if (window.__reportError) {
+        try { window.__reportError(message); return; } catch (e) { /* fall through */ }
+      }
+      console.error('[global error, app already mounted, no reporter available]', message, detail);
+    }
+
+    window.addEventListener('error', function (e) {
+      handleGlobalFailure(e.message || 'Unknown error', e.error && e.error.stack);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var reason = e.reason;
+      var message = (reason && reason.message) || String(reason);
+      handleGlobalFailure(message, reason && reason.stack);
+    });
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
