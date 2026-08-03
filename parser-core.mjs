@@ -35,11 +35,19 @@ const MONTH_MAP = {
 // Call once, before using any other export, with the parsed contents of
 // parser-config.json (or an equivalent object shaped the same way — e.g. a
 // freshly-fetched, newer version of that same file).
-export function configureParser(config) {
+//
+// wordMap is the parsed contents of parser-config-wordmap.json: keywords that
+// are mechanically derivable from a marker's own name (word-combinations,
+// forwards or reversed — e.g. "GLOMERULAR", "DIRECTBILIRUBIN") as opposed to
+// config.keywordMap's hand-curated keywords (shared-family keywords and
+// aliases/acronyms that aren't textually part of any marker's own name, like
+// "SGOT" or "TSH"). Kept separate because wordMap is meant to eventually be
+// auto-generated from the marker list rather than maintained by hand.
+export function configureParser(config, wordMap = {}) {
   VALUE_LIMITS = config.valueLimits;
   REF_RANGES = config.refRanges;
   MARKER_GROUPS = config.markerGroups;
-  KEYWORD_MAP = config.keywordMap;
+  KEYWORD_MAP = { ...config.keywordMap, ...wordMap };
   LAYOUT = config.layout;
 
   // Sorted longest-first so more-specific keywords win unambiguous single-canonical matches

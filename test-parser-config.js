@@ -29,7 +29,9 @@
 //                          decide, not auto-fixed.
 
 const config = require('./parser-config.json');
-const { keywordMap, valueLimits } = config;
+const wordMap = require('./parser-config-wordmap.json');
+const { valueLimits } = config;
+const keywordMap = { ...config.keywordMap, ...wordMap };
 
 function compactNorm(text) {
   return text.replace(/\x00/g, '').toUpperCase().replace(/AE/g, 'E').replace(/[^A-Z0-9]/g, '');

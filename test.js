@@ -27,7 +27,7 @@ async function main() {
   // parser-config.json is plain JSON — require() reads it natively, no
   // special handling needed. Must configure before reading MARKER_GROUPS
   // (destructuring it beforehand would capture the pre-configure `null`).
-  core.configureParser(require('./parser-config.json'));
+  core.configureParser(require('./parser-config.json'), require('./parser-config-wordmap.json'));
   const { parsePDF, MARKER_GROUPS } = core;
   const ALL_MARKERS = MARKER_GROUPS.flatMap(g => g.keys);
 

@@ -11,8 +11,11 @@ import { parsePDF as extractFromPdf, configureParser, MARKER_GROUPS, REF_RANGES,
 // this file, eventually via a fetched config instead of this local copy).
 // Top-level await here is safe: DOMContentLoaded is held back until a module
 // script (including any pending top-level await) finishes evaluating.
-const parserConfig = await fetch('./parser-config.json').then(r => r.json());
-configureParser(parserConfig);
+const [parserConfig, wordMap] = await Promise.all([
+  fetch('./parser-config.json').then(r => r.json()),
+  fetch('./parser-config-wordmap.json').then(r => r.json()),
+]);
+configureParser(parserConfig, wordMap);
 
 // Thin wrapper: converts the browser File → ArrayBuffer, injects pdfjsLib,
 // and falls back to prompting for a date when the core couldn't detect one
