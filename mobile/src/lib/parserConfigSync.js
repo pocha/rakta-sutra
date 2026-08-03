@@ -1,11 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// On every app init, try to fetch the latest parser-config.json straight from
-// GitHub. Three-tier fallback:
+// On every app init, try to fetch the latest parser-config.json and
+// parser-config-wordmap.json straight from GitHub. Each file independently
+// goes through the same three-tier fallback:
 //   1. Fetch succeeds → cache it and use it.
 //   2. Fetch fails (offline, GitHub down, malformed response) → use the last
 //      successfully cached version, if one exists from a previous launch.
 //   3. No cache either (e.g. first-ever launch with no network) → use the
-//      config bundled at build time.
+//      version bundled at build time.
+// They're synced independently (not as one atomic pair) so a hiccup fetching
+// one doesn't hold back a fresh copy of the other.
 // This is what lets report-format fixes (new keyword/reference-range/column-
 // pattern data) reach users without an app store release — parser-core.mjs's
 // logic itself never changes here, only the data it's configured with.
@@ -13,20 +16,24 @@
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { configureParser } from '../../../parser-core.mjs';
 import bundledConfig from '../../../parser-config.json';
+import bundledWordMap from '../../../parser-config-wordmap.json';
+import { getDeviceSetting, setDeviceSetting } from './db.js';
+import { reparseAllReports } from './reparseAll.js';
 
-const CACHE_PATH = 'parser-config.json';
-const REMOTE_URL = 'https://raw.githubusercontent.com/pocha/rakta-sutra/refs/heads/main/parser-config.json';
+const CONFIG_HASH_KEY = 'lastConfigHash';
+
+const GITHUB_BASE = 'https://raw.githubusercontent.com/pocha/rakta-sutra/refs/heads/main';
 const FETCH_TIMEOUT_MS = 5000;
 
 function isValidConfig(c) {
   return !!(c && c.keywordMap && c.markerGroups && c.valueLimits && c.refRanges && c.layout);
 }
 
-async function readCachedConfig() {
-  const { data } = await Filesystem.readFile({ path: CACHE_PATH, directory: Directory.Data, encoding: Encoding.UTF8 });
-  const cached = JSON.parse(data);
-  if (!isValidConfig(cached)) throw new Error('cached config failed shape validation');
-  return cached;
+// The word-map has no fixed shape to validate beyond "an object of arrays" —
+// unlike the main config it's just KEYWORD -> [marker, ...] pairs throughout.
+function isValidWordMap(w) {
+  return !!(w && typeof w === 'object' && !Array.isArray(w)
+    && Object.values(w).every(v => Array.isArray(v)));
 }
 
 // AbortSignal.timeout() is a newer API that may not exist on the older end
@@ -38,34 +45,85 @@ function fetchWithTimeout(url, ms) {
   return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
-export async function initParserConfig() {
+// Runs the fetch → cache → bundled fallback chain for one file. Returns
+// { data, source } rather than throwing — sync failures for one file should
+// never prevent the other from loading.
+async function syncOne({ label, remoteUrl, cachePath, bundled, isValid }) {
   try {
-    // A hung request here (flaky network, a captive portal, DNS weirdness)
-    // must never block app startup indefinitely — bound it and fall through
-    // to cache/bundled on timeout same as any other fetch failure.
-    const res = await fetchWithTimeout(REMOTE_URL, FETCH_TIMEOUT_MS);
+    const res = await fetchWithTimeout(remoteUrl, FETCH_TIMEOUT_MS);
     if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
     const remote = await res.json();
-    if (!isValidConfig(remote)) throw new Error('fetched config failed shape validation');
+    if (!isValid(remote)) throw new Error('fetched data failed shape validation');
 
     await Filesystem.writeFile({
-      path: CACHE_PATH,
+      path: cachePath,
       directory: Directory.Data,
       data: JSON.stringify(remote),
       encoding: Encoding.UTF8,
     });
-    configureParser(remote);
-    console.log('[parserConfig] using freshly fetched config');
-    return;
+    return { data: remote, source: 'remote' };
   } catch (err) {
-    console.error('[parserConfig] fetch failed, falling back to cache:', err);
+    console.error(`[parserConfig] ${label}: fetch failed, falling back to cache:`, err);
   }
 
   try {
-    configureParser(await readCachedConfig());
-    console.log('[parserConfig] using last cached config');
+    const { data } = await Filesystem.readFile({ path: cachePath, directory: Directory.Data, encoding: Encoding.UTF8 });
+    const cached = JSON.parse(data);
+    if (!isValid(cached)) throw new Error('cached data failed shape validation');
+    return { data: cached, source: 'cache' };
   } catch (err) {
-    console.error('[parserConfig] no usable cache, falling back to bundled config:', err);
-    configureParser(bundledConfig);
+    console.error(`[parserConfig] ${label}: no usable cache, falling back to bundled:`, err);
+    return { data: bundled, source: 'bundled' };
   }
+}
+
+// SHA-256 over the combined config — cheap, collision-safe enough for "did
+// this change since last launch", and avoids storing the (~30-50KB) config
+// text itself in device_settings just to compare it next time.
+async function hashConfig(config, wordMap) {
+  const bytes = new TextEncoder().encode(JSON.stringify(config) + JSON.stringify(wordMap));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Fire-and-forget from initParserConfig() — must never block app startup on
+// hashing (cheap) or a potentially-slow reparse of every stored report.
+async function reparseIfConfigChanged(config, wordMap) {
+  const hash = await hashConfig(config, wordMap);
+  const previous = await getDeviceSetting(CONFIG_HASH_KEY);
+  if (previous !== hash) {
+    // Skip the reparse specifically on a from-scratch first launch (no
+    // previous hash at all) — every report parsed from here on already
+    // uses this exact config, there's nothing stale to fix yet.
+    if (previous !== null) {
+      console.log('[parserConfig] config changed since last launch — reparsing all stored reports');
+      await reparseAllReports();
+    }
+    await setDeviceSetting(CONFIG_HASH_KEY, hash);
+  }
+}
+
+export async function initParserConfig() {
+  const [config, wordMap] = await Promise.all([
+    syncOne({
+      label: 'config',
+      remoteUrl: `${GITHUB_BASE}/parser-config.json`,
+      cachePath: 'parser-config.json',
+      bundled: bundledConfig,
+      isValid: isValidConfig,
+    }),
+    syncOne({
+      label: 'wordmap',
+      remoteUrl: `${GITHUB_BASE}/parser-config-wordmap.json`,
+      cachePath: 'parser-config-wordmap.json',
+      bundled: bundledWordMap,
+      isValid: isValidWordMap,
+    }),
+  ]);
+
+  configureParser(config.data, wordMap.data);
+  console.log(`[parserConfig] using config (${config.source}) + wordmap (${wordMap.source})`);
+
+  reparseIfConfigChanged(config.data, wordMap.data).catch(err =>
+    console.error('[parserConfig] reparse-on-config-change check failed:', err));
 }

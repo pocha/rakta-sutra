@@ -35,11 +35,19 @@ const MONTH_MAP = {
 // Call once, before using any other export, with the parsed contents of
 // parser-config.json (or an equivalent object shaped the same way — e.g. a
 // freshly-fetched, newer version of that same file).
-export function configureParser(config) {
+//
+// wordMap is the parsed contents of parser-config-wordmap.json: keywords that
+// are mechanically derivable from a marker's own name (word-combinations,
+// forwards or reversed — e.g. "GLOMERULAR", "DIRECTBILIRUBIN") as opposed to
+// config.keywordMap's hand-curated keywords (shared-family keywords and
+// aliases/acronyms that aren't textually part of any marker's own name, like
+// "SGOT" or "TSH"). Kept separate because wordMap is meant to eventually be
+// auto-generated from the marker list rather than maintained by hand.
+export function configureParser(config, wordMap = {}) {
   VALUE_LIMITS = config.valueLimits;
   REF_RANGES = config.refRanges;
   MARKER_GROUPS = config.markerGroups;
-  KEYWORD_MAP = config.keywordMap;
+  KEYWORD_MAP = { ...config.keywordMap, ...wordMap };
   LAYOUT = config.layout;
 
   // Sorted longest-first so more-specific keywords win unambiguous single-canonical matches
@@ -187,9 +195,73 @@ export function matchLine(lineText) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Unit-based disambiguation — some markers share a keyword-ambiguous name
+// fragment but are measured on completely different scales (blood Albumin in
+// g/dL vs Urinary Microalbumin in μg/mL) — VALUE_LIMITS/REF_RANGE_HINTS alone
+// can't separate them, since the same headline number is plausible either
+// way. The unit's *shape* reliably can: mass-prefix over a volume
+// denominator is a concentration (g/dL, mg/dL, μg/mL, ...), mass-prefix over
+// a mass denominator is a ratio (μg/mg, mg/g, ...), and no unit at all is
+// its own distinct category. This is deliberately pattern-based rather than
+// exact-string matching against an expected unit, so it tolerates minor
+// spelling differences between labs (gm/dL vs g/dL, mcg vs μg vs ug, a
+// trailing " of Creatinine", etc.) instead of needing every variant
+// anticipated in advance. Only used where we've actually seen this class of
+// conflict (currently the Albumin family) — see disambiguate() below.
+// ─────────────────────────────────────────────────────────────────────────────
+const MASS_PREFIX_TO_MICROGRAMS = { NG: 0.001, MCG: 1, UG: 1, ΜG: 1, MG: 1000, GM: 1_000_000, G: 1_000_000 };
+const VOLUME_TO_ML = { ML: 1, DL: 100, L: 1000 };
+const MASS_PREFIX_ALT = 'NG|MCG|UG|ΜG|MG|GM|G';
+
+function parseUnitDimension(unitStr) {
+  if (!unitStr || !unitStr.trim()) return { type: 'unitless' };
+  const u = unitStr.trim().toUpperCase();
+  let m = u.match(new RegExp(`^(${MASS_PREFIX_ALT})\\/(ML|DL|L)(?=\\s|$)`));
+  if (m) return { type: 'concentration', microgramsPerML: MASS_PREFIX_TO_MICROGRAMS[m[1]] / VOLUME_TO_ML[m[2]] };
+  m = u.match(new RegExp(`^(${MASS_PREFIX_ALT})\\/(${MASS_PREFIX_ALT})(?=\\s|$)`));
+  if (m) return { type: 'ratio' };
+  return null; // unrecognized shape — not used for disambiguation
+}
+
+// Pulls the trailing unit text off a refRanges string, e.g. "3.2-4.8 g/dL" -> "g/dL",
+// "< 25 ug/mL" -> "ug/mL", "0.9-2" -> "" (no unit).
+function extractRefRangeUnit(refRangeStr) {
+  if (!refRangeStr) return '';
+  const m = refRangeStr.match(/([a-zA-Zμ%][a-zA-Zμ%/\s]*)$/);
+  return m ? m[1].trim() : '';
+}
+
+// Narrows candidates by comparing the captured unit's dimension (and, for
+// concentration-type units, its normalized magnitude) against each
+// candidate's own expected unit, derived from REF_RANGES. Returns a single
+// canonical if exactly one candidate's dimension (and magnitude, where
+// applicable) is consistent with what was actually captured; otherwise null.
+function disambiguateByUnit(candidates, value, units) {
+  const capturedDim = parseUnitDimension(units);
+  if (!capturedDim || value === null) return null;
+  const matches = candidates.filter(c => {
+    const expectedDim = parseUnitDimension(extractRefRangeUnit(REF_RANGES[c]));
+    if (!expectedDim || expectedDim.type !== capturedDim.type) return false;
+    if (expectedDim.type !== 'concentration') return true;
+    const lim = VALUE_LIMITS[c];
+    if (!lim) return true;
+    const normalizedValue = value * capturedDim.microgramsPerML;
+    return normalizedValue >= lim[0] * expectedDim.microgramsPerML && normalizedValue <= lim[1] * expectedDim.microgramsPerML;
+  });
+  return matches.length === 1 ? matches[0] : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Disambiguation — pick best canonical from candidates using PDF ref range
 // ─────────────────────────────────────────────────────────────────────────────
-export function disambiguate(candidates, ref, value = null) {
+export function disambiguate(candidates, ref, value = null, units = '') {
+  // units === '' is itself meaningful (a genuinely unitless marker, e.g. a
+  // ratio) — don't skip unit-based disambiguation just because the string
+  // is empty, only when we have no value to evaluate it against at all.
+  if (candidates.length > 1 && value !== null) {
+    const byUnit = disambiguateByUnit(candidates, value, units);
+    if (byUnit) return byUnit;
+  }
   // Primary: use ref range printed on the PDF line (overlap scoring)
   if (ref) {
     let refLo, refHi;
@@ -239,6 +311,12 @@ const NUM_RE   = /^-?\d+\.?\d*$/;
 // can't match that since it requires the *whole* string to be numeric. This
 // extracts a leading number followed by trailing unit text as a fallback.
 const NUM_WITH_TRAILING_RE = /^(-?\d+\.?\d*)\s+(\S.*)$/;
+// Below/above-detection-limit ("censored") values are common for markers
+// with a hard floor/ceiling — e.g. "< 5.5" for urine microalbumin. Treat the
+// threshold itself as the value, same simplification RANGE_RE already makes
+// for "< X"/"> X" *reference* ranges — not clinically exact, but a
+// reasonable value for trend tracking rather than dropping the result.
+const CENSORED_NUM_RE = /^[<>≤≥]\s*(-?\d+\.?\d*)$/;
 const RANGE_RE = /^\d+\.?\d*\s*[-–]\s*\d+\.?\d*$|^[<>≤≥]=?\s*\d+\.?\d*$|^\d+:\d+\s*[-–]\s*\d+:\d+$/;
 
 function extractValueAndRef(lineItems, alias, colMap) {
@@ -270,14 +348,21 @@ function extractValueAndRef(lineItems, alias, colMap) {
           if (m) {
             value = parseFloat(m[1]);
             if (!units) units = m[2];
+          } else {
+            const cm = cleaned.match(CENSORED_NUM_RE);
+            if (cm) value = parseFloat(cm[1]);
           }
         }
       }
       if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
         if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
       }
-      if (!units && colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
-        if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units = t;
+      // Units are sometimes split across multiple PDF text items in the same
+      // column (e.g. "g", "/", "dL") — accumulate all of them, or a
+      // multi-token unit like "g/dL" collapses to just "g" and
+      // disambiguateByUnit silently fails to recognize the unit's shape.
+      if (colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
+        if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
       }
     }
     // Null-byte ref reconstruction (Orange): two separate numeric items near reference column
@@ -322,8 +407,12 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
         if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
           if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
         }
-        if (!units && colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
-          if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units = t;
+        // Units are sometimes split across multiple PDF text items in the
+        // same column (e.g. "g", "/", "dL") — accumulate all of them, or a
+        // multi-token unit like "g/dL" collapses to just "g" and
+        // disambiguateByUnit silently fails to recognize the unit's shape.
+        if (colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
+          if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
         }
       }
       // Null-byte ref reconstruction (Orange)
@@ -364,7 +453,7 @@ function peekNextValue(allLines, i, colMap) {
   for (let j = i + 1; j <= Math.min(i + LAYOUT.lookAheadLines, allLines.length - 1); j++) {
     const next = allLines[j];
     if (next.pageBreak) break;
-    let value = null, ref = null;
+    let value = null, ref = null, units = '';
     if (colMap?.value !== undefined) {
       const pkValCutoff = colMap.value - LAYOUT.nameValueCutoff;
       for (const item of next.items) {
@@ -375,6 +464,13 @@ function peekNextValue(allLines, i, colMap) {
         }
         if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
           if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
+        }
+        // Units are sometimes split across multiple PDF text items in the
+        // same column (e.g. "g", "/", "dL") — accumulate all of them, or a
+        // multi-token unit like "g/dL" collapses to just "g" and
+        // disambiguateByUnit silently fails to recognize the unit's shape.
+        if (colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
+          if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
         }
       }
       // Null-byte ref reconstruction (Orange)
@@ -391,7 +487,7 @@ function peekNextValue(allLines, i, colMap) {
         if (NUM_RE.test(t)) { value = parseFloat(t); break; }
       }
     }
-    if (value !== null) return { value, ref };
+    if (value !== null) return { value, ref, units };
     // Stop if this line is a marker name — don't skip over it to grab its value
     const pkNameItems = colMap?.value !== undefined
       ? next.items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
@@ -399,7 +495,7 @@ function peekNextValue(allLines, i, colMap) {
     const pkm = matchLine(pkNameItems.map(it => it.text).join(' '));
     if (pkm) break;
   }
-  return { value: null, ref: null };
+  return { value: null, ref: null, units: '' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -515,7 +611,7 @@ function tryExtractLine(line, i, allLines, colMap, extracted) {
   const scale = unitScale(units);
   if (value !== null) value = value * scale;
   if (scale !== 1) ref = scaleRef(ref, scale);
-  let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value);
+  let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value, units);
 
   // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
   // look at the next line to get a value/ref so we can disambiguate.
@@ -523,7 +619,7 @@ function tryExtractLine(line, i, allLines, colMap, extracted) {
   if (!canonical && lm.candidates.length > 0 && value === null) {
     const la = peekNextValue(allLines, i, colMap);
     if (la.value !== null) {
-      canonical = disambiguate(lm.candidates, la.ref, la.value);
+      canonical = disambiguate(lm.candidates, la.ref, la.value, la.units);
       if (canonical) { value = la.value; ref = la.ref; }
     }
   }

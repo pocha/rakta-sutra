@@ -51,10 +51,56 @@ static file server, to develop.
 node test.js
 ```
 
-Parses the sample PDFs (`orange.pdf`, `tata-1mg.pdf`, `thyrocare.pdf`) through
-`parser-core.mjs` and prints every extracted marker + detected report date —
-the quickest way to sanity-check a parsing change before touching the mobile
-app's copy of the same logic.
+Parses every sample PDF in `sample-reports/` (gitignored — not real patient
+data, drop your own test PDFs there) through `parser-core.mjs` and prints
+every extracted marker + detected report date, per file plus a combined
+table — the quickest way to sanity-check a parsing change before touching
+the mobile app's copy of the same logic. Add new sample files by dropping
+them into `sample-reports/` and adding the filename to `test.js`'s
+`PDF_NAMES` array.
+
+```bash
+node test-parser-config.js
+```
+
+Keyword collision auditor — for every keyword, checks whether it's a
+substring of some *other* marker's name without that marker being listed
+among the keyword's own targets (the "TIN is a substring of CREATININE"
+shape of bug). Run this after any `parser-config.json` or
+`parser-config-wordmap.json` edit, alongside `test.js`. It only flags
+things for a human to judge — a flagged collision may already be harmless
+(the colliding marker has its own stronger keyword elsewhere) or may need a
+new, more specific keyword; it doesn't auto-fix anything.
+
+### Keyword data: `parser-config.json` vs `parser-config-wordmap.json`
+
+Marker matching (`parser-core.mjs`'s `matchLine()`) scores every keyword
+whose text appears as a substring of a report line; the highest-scoring
+marker(s) win, and ties fall back to ref-range/value/unit disambiguation.
+The keyword list behind this is split into two files, loaded together via
+`configureParser(config, wordMap)`:
+
+- **`parser-config.json`'s `keywordMap`** — hand-curated: keywords shared
+  deliberately across multiple markers (e.g. `"RATIO"`, `"VITAMIN"`) and
+  aliases/acronyms that aren't textually part of any marker's own canonical
+  name (e.g. `"SGOT"`, `"TSH"`, `"EGFR"`). Edit this directly.
+- **`parser-config-wordmap.json`** — mechanically generated from the marker
+  list, never hand-edited. Regenerate it after adding, renaming, or removing
+  a marker in `parser-config.json`'s `valueLimits`:
+
+  ```bash
+  node generate-wordmap.js
+  ```
+
+  This derives keywords purely from each marker's own words (cumulative
+  prefixes, e.g. "Glomerular Filtration Rate (eGFR)" →
+  `GLOMERULARFILTRATION`, `GLOMERULARFILTRATIONRATE`, ...; plus both word
+  orders for exactly-2-word markers, e.g. `BILIRUBINDIRECT` and
+  `DIRECTBILIRUBIN`) and drops anything that would collide with an existing
+  hand-curated `keywordMap` key or accidentally be a substring of a
+  *different* marker's name. It prints what it dropped/resolved and why —
+  always re-run `node test.js` afterward to confirm no regression before
+  committing the regenerated file.
 
 ### Deploy
 

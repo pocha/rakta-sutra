@@ -1,10 +1,33 @@
 import { mount } from 'svelte';
 import './theme.css';
 import App from './App.svelte';
-import { initDb } from './lib/db.js';
+import { initDb, getDeviceSetting, setDeviceSetting } from './lib/db.js';
 import { initPush } from './lib/push.js';
 import { initParserConfig } from './lib/parserConfigSync.js';
+import { reparseAllReports } from './lib/reparseAll.js';
 import { showToast } from './lib/toast.svelte.js';
+
+const APP_VERSION_KEY = 'lastAppVersion';
+
+// Same trigger as parserConfigSync.js's config-hash check, just keyed off
+// the app build itself — a new app version can ship parser-core.mjs logic
+// changes (not just config data) that only take effect once stored reports
+// are re-parsed. __APP_VERSION__ is a Vite build-time global sourced from
+// package.json's version (see vite.config.js) — the same single source of
+// truth deploy.sh uses for the native versionName/MARKETING_VERSION.
+// Fire-and-forget: never block mount() on this.
+async function reparseIfAppUpdated() {
+  const previous = await getDeviceSetting(APP_VERSION_KEY);
+  if (previous !== __APP_VERSION__) {
+    // Skip on a fresh install (no previous version recorded) — nothing's
+    // stale yet, every report was already parsed with this exact build.
+    if (previous !== null) {
+      console.log(`[main] app updated ${previous} -> ${__APP_VERSION__} — reparsing all stored reports`);
+      await reparseAllReports();
+    }
+    await setDeviceSetting(APP_VERSION_KEY, __APP_VERSION__);
+  }
+}
 
 // WKWebView (iOS) has historically lacked ReadableStream async iteration —
 // pdf.js's getTextContent() does `for await (const value of readableStream)`,
@@ -53,6 +76,7 @@ Promise.all([withTimeout(initDb(), 10000, 'initDb'), initParserConfig()])
     window.__appMounted = true;
     window.__reportError = (message) => showToast(message, 'error');
     initPush().catch((err) => console.error('[main] initPush failed:', err));
+    reparseIfAppUpdated().catch((err) => console.error('[main] reparse-on-app-update check failed:', err));
   })
   .catch((err) => {
     console.error('[main] init failed:', err);

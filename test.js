@@ -13,8 +13,11 @@ function readArrayBuffer(filePath) {
   return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
 }
 
-const PDF_DIR  = __dirname;
-const PDF_NAMES = ['orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf', 'aarthi-scans.pdf', 'neuberg-anand.pdf', 'innoquest.pdf'];
+const PDF_DIR  = path.join(__dirname, 'sample-reports');
+const PDF_NAMES = [
+  'orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf', 'aarthi-scans.pdf', 'neuberg-anand.pdf', 'innoquest.pdf',
+  '2025-12-full-body.pdf', 'metropolis.pdf', 'thyrocare-arogyam-1.3.pdf', 'toxic-nutrient-thyrocare.pdf', 'urine-markers.pdf', 'vitamins.pdf',
+];
 
 async function main() {
   // parser-core.mjs is a real ES module (shared with the mobile app) —
@@ -24,7 +27,7 @@ async function main() {
   // parser-config.json is plain JSON — require() reads it natively, no
   // special handling needed. Must configure before reading MARKER_GROUPS
   // (destructuring it beforehand would capture the pre-configure `null`).
-  core.configureParser(require('./parser-config.json'));
+  core.configureParser(require('./parser-config.json'), require('./parser-config-wordmap.json'));
   const { parsePDF, MARKER_GROUPS } = core;
   const ALL_MARKERS = MARKER_GROUPS.flatMap(g => g.keys);
 

@@ -191,6 +191,13 @@
       const result = await FilePicker.pickFiles({ types: ['application/pdf'], readData: true });
       let lastUploadedId = null;
       const failed = [];
+      // Seeded from what's already on file for this profile, then grown as
+      // this batch runs — so uploading two same-dated PDFs in one go also
+      // flags the second against the first, not just against pre-existing
+      // reports. Same date is never a real conflict (reports are identified
+      // by their own id, never by date — see reports/markers schema in
+      // db.js), this is purely a "did you mean to do this" nudge.
+      const seenDates = new Set(reports.map(r => r.date));
       for (const file of result.files) {
         try {
           statusMsg = `Reading "${file.name}"…`;
@@ -203,6 +210,15 @@
             reportDate = window.prompt(`Could not detect a date in "${file.name}".\nEnter the report date (YYYY-MM-DD):`, '');
             if (!reportDate) continue;
           }
+          if (seenDates.has(reportDate)) {
+            const proceed = window.confirm(
+              `You already have a report dated ${reportDate}.\n\n` +
+              `Add "${file.name}" as a separate report for the same date anyway? ` +
+              `You can remove either one later from the Timeline tab.`
+            );
+            if (!proceed) continue;
+          }
+          seenDates.add(reportDate);
           const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
           lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted);
           await logAnalyticsEvent('report_imported');
