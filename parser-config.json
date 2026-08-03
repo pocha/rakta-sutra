@@ -205,6 +205,8 @@
     "RDWSD": ["Red Cell Distribution Width-SD"],
     "RDW": ["Red Cell Distribution Width-CV", "Red Cell Distribution Width-SD"],
     "CHOLESTEROL": ["Total Cholesterol", "HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol"],
+    "TOTALCHOLESTEROL": ["Total Cholesterol"],
+    "CHOLESTEROLTOTAL": ["Total Cholesterol"],
     "TRIGLYCERIDE": ["Triglycerides"],
     "LIPOPROTEIN": ["HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol", "Non-HDL Cholesterol", "Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio"],
     "APOLIPOPROTEIN": ["Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio"],
