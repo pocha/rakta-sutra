@@ -16,7 +16,7 @@ function readArrayBuffer(filePath) {
 const PDF_DIR  = path.join(__dirname, 'sample-reports');
 const PDF_NAMES = [
   'orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf', 'aarthi-scans.pdf', 'neuberg-anand.pdf', 'innoquest.pdf',
-  '2024-Nov-KFT-LFT.pdf', '2025-12-full-body.pdf', 'metropolis.pdf', 'thyrocare-arogyam-1.3.pdf', 'toxic-nutrient-thyrocare.pdf', 'urine-markers.pdf', 'vitamins.pdf',
+  '2025-12-full-body.pdf', 'metropolis.pdf', 'thyrocare-arogyam-1.3.pdf', 'toxic-nutrient-thyrocare.pdf', 'urine-markers.pdf', 'vitamins.pdf',
 ];
 
 async function main() {

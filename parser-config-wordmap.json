@@ -20,6 +20,8 @@
     "ABSOLUTEEOSINOPHILS": ["Eosinophils Absolute"],
     "BASOPHILSABSOLUTE": ["Basophils Absolute"],
     "ABSOLUTEBASOPHILS": ["Basophils Absolute"],
+    "GRANULOCYTESIMMATURE": ["Immature Granulocytes %"],
+    "IMMATUREGRANULOCYTESABSOLUTE": ["Immature Granulocytes Absolute"],
     "MEANPLATELET": ["Mean Platelet Volume"],
     "MEANPLATELETVOLUME": ["Mean Platelet Volume"],
     "NEUTROPHILLYMPHOCYTE": ["Neutrophil Lymphocyte Ratio"],
@@ -134,5 +136,8 @@
     "RHEUMATOIDFACTOR": ["Rheumatoid Factor"],
     "FACTORRHEUMATOID": ["Rheumatoid Factor"],
     "ERYTHROCYTESEDIMENTATION": ["Erythrocyte Sedimentation Rate"],
-    "ERYTHROCYTESEDIMENTATIONRATE": ["Erythrocyte Sedimentation Rate"]
+    "ERYTHROCYTESEDIMENTATIONRATE": ["Erythrocyte Sedimentation Rate"],
+    "AMYLASE": ["Amylase"],
+    "LIPASE": ["Lipase"],
+    "TESTOSTERONE": ["Testosterone"]
 }

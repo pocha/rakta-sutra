@@ -198,6 +198,37 @@ export async function listReports(profileId) {
   )).values;
 }
 
+// Every report across every profile — used by reparseAll.js, which isn't
+// scoped to whichever profile is currently active.
+export async function listAllReports() {
+  return (await db.query('SELECT * FROM reports ORDER BY report_date DESC')).values;
+}
+
+// Replaces a report's auto-extracted markers with a fresh extraction, without
+// touching any marker the user has hand-corrected (manually_edited = 1) for
+// this report — those rows are neither deleted nor overwritten. A fresh
+// value for a canonical the user already corrected is silently dropped by
+// INSERT OR IGNORE, since the manually-edited row still occupies that
+// (report_id, canonical) UNIQUE slot.
+export async function replaceAutoExtractedMarkers(reportId, extractedMarkers) {
+  await db.beginTransaction();
+  try {
+    await db.run('DELETE FROM markers WHERE report_id = ? AND manually_edited = 0', [reportId], false);
+    for (const [canonical, { value, ref }] of Object.entries(extractedMarkers)) {
+      await db.run(
+        'INSERT OR IGNORE INTO markers (report_id, canonical, value, ref_range) VALUES (?, ?, ?, ?)',
+        [reportId, canonical, value, ref ?? null],
+        false
+      );
+    }
+    await db.commitTransaction();
+    await persist();
+  } catch (e) {
+    await db.rollbackTransaction();
+    throw e;
+  }
+}
+
 export async function getReportMarkers(reportId) {
   return (await db.query(
     'SELECT * FROM markers WHERE report_id = ? ORDER BY canonical',
@@ -473,6 +504,24 @@ export async function logNotificationTap(reminderId, text) {
 
 export async function listNotificationLog() {
   return (await db.query('SELECT * FROM notification_log ORDER BY tapped_at DESC')).values;
+}
+
+// Generic device-scoped key/value read/write, backing reparseAll.js's
+// "has the config or app version changed since the last reparse" checks —
+// deliberately generic (unlike deviceId/multiSelectHint below) since both
+// triggers just need to remember one opaque string across launches.
+export async function getDeviceSetting(key) {
+  const rows = (await db.query('SELECT value FROM device_settings WHERE key = ?', [key])).values;
+  return rows[0]?.value ?? null;
+}
+
+export async function setDeviceSetting(key, value) {
+  await db.run(
+    `INSERT INTO device_settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [key, value]
+  );
+  await persist();
 }
 
 export async function getOrCreateDeviceId() {

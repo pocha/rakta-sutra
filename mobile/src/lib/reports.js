@@ -15,6 +15,13 @@ function toBase64(arrayBuffer) {
   return btoa(binary);
 }
 
+function fromBase64(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
 export async function saveReportFile(profileId, fileName, arrayBuffer) {
   const path = `${REPORTS_DIR}/${profileId}-${Date.now()}-${fileName}`;
   await Filesystem.writeFile({
@@ -24,6 +31,21 @@ export async function saveReportFile(profileId, fileName, arrayBuffer) {
     recursive: true,
   });
   return path;
+}
+
+// Reads a previously-saved report PDF back out as an ArrayBuffer, for
+// re-parsing against an updated config (see reparseAll.js). Returns null
+// rather than throwing if the file is gone (e.g. deleted outside the app,
+// or a restore that didn't bring files along) — callers should treat that
+// report as unre-parseable and skip it rather than fail the whole batch.
+export async function readReportFile(path) {
+  try {
+    const { data } = await Filesystem.readFile({ path, directory: Directory.Data });
+    return fromBase64(data);
+  } catch (err) {
+    console.error('[reports] readReportFile failed for', path, err);
+    return null;
+  }
 }
 
 export async function deleteReportFile(path) {
