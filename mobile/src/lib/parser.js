@@ -15,6 +15,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 // parserConfigSync.js), before anything here is used.
 export { MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange };
 
-export async function parsePDF(arrayBuffer) {
-  return extractFromPdf(arrayBuffer, pdfjsLib);
+export async function parsePDF(arrayBuffer, password) {
+  return extractFromPdf(arrayBuffer, pdfjsLib, password);
 }

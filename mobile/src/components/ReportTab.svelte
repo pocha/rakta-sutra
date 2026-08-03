@@ -164,26 +164,55 @@
     await runPickAndUpload();
   }
 
+  // Tries to parse a (possibly password-protected) PDF, prompting for a
+  // password and retrying as many times as the user is willing to. Returns
+  // null if the user cancels the password prompt, so the caller can skip
+  // just this one file rather than aborting the whole batch.
+  async function parseWithPasswordRetry(file) {
+    let password;
+    for (;;) {
+      try {
+        // pdf.js takes ownership of the buffer passed to it (transferred to
+        // its worker) and detaches it — even on a failed/password attempt —
+        // so a fresh copy is needed on every attempt, not just every file.
+        return await parsePDF(base64ToArrayBuffer(file.data), password);
+      } catch (err) {
+        if (err.name !== 'PasswordException') throw err;
+        password = window.prompt(`"${file.name}" is password protected.\nEnter the password:`, '');
+        if (!password) return null;
+      }
+    }
+  }
+
   async function runPickAndUpload() {
     busy = true;
     statusMsg = 'Opening file picker…';
     try {
       const result = await FilePicker.pickFiles({ types: ['application/pdf'], readData: true });
       let lastUploadedId = null;
+      const failed = [];
       for (const file of result.files) {
-        statusMsg = `Reading "${file.name}"…`;
-        // pdf.js takes ownership of the buffer passed to it (transferred to its
-        // worker) and detaches it once parsing starts — decode a separate copy
-        // for each use rather than sharing one ArrayBuffer between the two.
-        const { date, extracted } = await parsePDF(base64ToArrayBuffer(file.data));
-        let reportDate = date;
-        if (!reportDate) {
-          reportDate = window.prompt(`Could not detect a date in "${file.name}".\nEnter the report date (YYYY-MM-DD):`, '');
-          if (!reportDate) continue;
+        try {
+          statusMsg = `Reading "${file.name}"…`;
+          const parsed = await parseWithPasswordRetry(file);
+          if (!parsed) continue; // user cancelled the password prompt — skip this file
+
+          const { date, extracted } = parsed;
+          let reportDate = date;
+          if (!reportDate) {
+            reportDate = window.prompt(`Could not detect a date in "${file.name}".\nEnter the report date (YYYY-MM-DD):`, '');
+            if (!reportDate) continue;
+          }
+          const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
+          lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted);
+          await logAnalyticsEvent('report_imported');
+        } catch (err) {
+          // One bad file (corrupt, unsupported, etc.) shouldn't abort the
+          // rest of the batch — record it and keep going.
+          failed.push(`${file.name}: ${err.message}`);
+          console.error('[pickAndUpload] failed for', file.name, ':', err.message);
+          console.error('[pickAndUpload] stack:', err.stack);
         }
-        const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
-        lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted);
-        await logAnalyticsEvent('report_imported');
       }
       statusMsg = '';
       await refresh();
@@ -199,7 +228,10 @@
         flashReportId = lastUploadedId;
         setTimeout(() => { flashReportId = null; }, 1800);
       }
+      if (failed.length) showToast(failed.join('\n'), 'error');
     } catch (err) {
+      // Only errors outside the per-file loop land here now — e.g. the file
+      // picker itself failing, or refresh()/db calls unrelated to one file.
       statusMsg = '';
       showToast('Upload failed: ' + err.message, 'error');
       // Capacitor's native console bridge JSON-serializes console.error args,

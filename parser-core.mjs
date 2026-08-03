@@ -427,10 +427,15 @@ export function parseRefRange(refStr) {
 // web, bundled import on mobile) so this file makes no assumption about how
 // PDF.js is loaded. Never blocks on a date-entry prompt — if no date can be
 // detected, `date` comes back null and the caller's UI layer asks the user.
+// `password` is optional; if the PDF needs one and none (or a wrong one) was
+// given, pdf.js rejects with a PasswordException (err.name === 'PasswordException')
+// — the caller's UI layer is expected to catch that specifically, prompt for
+// a password, and retry with a freshly-decoded arrayBuffer (pdf.js transfers/
+// detaches the one it's given to its worker, even on a failed attempt).
 // ─────────────────────────────────────────────────────────────────────────────
-export async function parsePDF(arrayBuffer, pdfjsLib) {
+export async function parsePDF(arrayBuffer, pdfjsLib, password) {
   assertConfigured();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password }).promise;
   const allLines = [];
   let scanned = 0;
 

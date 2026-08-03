@@ -16,10 +16,26 @@ configureParser(parserConfig);
 
 // Thin wrapper: converts the browser File → ArrayBuffer, injects pdfjsLib,
 // and falls back to prompting for a date when the core couldn't detect one
-// (the core itself never touches window/document).
+// (the core itself never touches window/document). Also retries with a
+// password if the PDF needs one — pdf.js rejects with a PasswordException
+// (err.name === 'PasswordException') rather than returning empty results.
 async function parsePDF(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const { date, extracted } = await extractFromPdf(arrayBuffer, pdfjsLib);
+  let password;
+  let date, extracted;
+  for (;;) {
+    try {
+      // file.arrayBuffer() can be called again for each retry — unlike a
+      // reused ArrayBuffer, a File/Blob isn't consumed by reading it, so
+      // this always hands pdf.js a fresh, undetached buffer.
+      const arrayBuffer = await file.arrayBuffer();
+      ({ date, extracted } = await extractFromPdf(arrayBuffer, pdfjsLib, password));
+      break;
+    } catch (err) {
+      if (err.name !== 'PasswordException') throw err;
+      password = window.prompt(`"${file.name}" is password protected.\nEnter the password:`, '');
+      if (!password) throw new Error('Password required — skipped');
+    }
+  }
   const reportDate = date ?? (window.prompt(`Could not detect date in "${file.name}".\nEnter test date (YYYY-MM-DD):`, '') || 'Unknown');
   return { date: reportDate, extracted };
 }
