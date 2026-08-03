@@ -455,6 +455,7 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
 
   const extracted = {};
   let colMap = null;
+  let anyColMapFound = false;
 
   for (let i = 0; i < allLines.length; i++) {
     const line = allLines[i];
@@ -463,51 +464,78 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
     const newMap = detectColMap(line);
     if (newMap) {
       colMap = newMap;
+      anyColMapFound = true;
       // Don't continue — the header line may also contain data (Thyrocare Hemoglobin)
     }
 
     // Only extract after we've found a header row — skips index/TOC pages
     if (!colMap) continue;
 
-    // Match keywords only against name-column items (left of value column)
-    const nameItems = colMap.value !== undefined
-      ? line.items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
-      : line.items;
-    if (!nameItems.length) continue;
-    const nameText = nameItems.map(it => it.text).join('  ');
+    tryExtractLine(line, i, allLines, colMap, extracted);
+  }
 
-    const lm = matchLine(nameText);
-    if (!lm) continue;
-
-    // Extract value+ref+units from the current line
-    let { value, ref, units } = extractValueAndRef(line.items, '', colMap);
-    const scale = unitScale(units);
-    if (value !== null) value = value * scale;
-    if (scale !== 1) ref = scaleRef(ref, scale);
-    let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value);
-
-    // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
-    // look at the next line to get a value/ref so we can disambiguate.
-    // Only peek when current line has no value — otherwise we'd grab the next marker's data.
-    if (!canonical && lm.candidates.length > 0 && value === null) {
-      const la = peekNextValue(allLines, i, colMap);
-      if (la.value !== null) {
-        canonical = disambiguate(lm.candidates, la.ref, la.value);
-        if (canonical) { value = la.value; ref = la.ref; }
-      }
+  // Some report formats never print a detectable column header at all — no
+  // "Test"/"Investigation"/"Parameter" label above the marker-name column,
+  // just the values sitting there implicitly (e.g. innoquest.pdf). The pass
+  // above never got a colMap and skipped every line as a result. Fall back
+  // to a headerless pass: match marker keywords directly against each
+  // line's own text and scan linearly for a value/range on that line (or
+  // the next couple, via the same lookahead used above) instead of
+  // anchoring on column x-position — extractValueAndRef/lookAheadValue/
+  // peekNextValue already fall back to exactly that when colMap is
+  // undefined. Only attempted when column-anchored extraction found no
+  // header at all anywhere in the document, so well-structured reports
+  // that already work are unaffected.
+  if (!anyColMapFound) {
+    for (let i = 0; i < allLines.length; i++) {
+      const line = allLines[i];
+      if (line.pageBreak || shouldSkip(line.text)) continue;
+      tryExtractLine(line, i, allLines, undefined, extracted);
     }
-
-    if (!canonical || extracted[canonical]) continue;
-
-    // Look ahead if value is still missing or out of physiological range
-    if (value === null || !inValueRange(canonical, value)) {
-      ({ value, ref } = lookAheadValue(allLines, i, canonical, colMap, extracted));
-    }
-
-    if (value === null || !inValueRange(canonical, value)) continue;
-
-    extracted[canonical] = { value, ref: ref ?? REF_RANGES[canonical] ?? '' };
   }
 
   return { date, extracted };
+}
+
+// Attempts to extract one marker from a single line, mutating `extracted`
+// in place. `colMap` may be undefined (headerless mode).
+function tryExtractLine(line, i, allLines, colMap, extracted) {
+  // Match keywords only against name-column items (left of value column)
+  const nameItems = colMap?.value !== undefined
+    ? line.items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
+    : line.items;
+  if (!nameItems.length) return;
+  const nameText = nameItems.map(it => it.text).join('  ');
+
+  const lm = matchLine(nameText);
+  if (!lm) return;
+
+  // Extract value+ref+units from the current line
+  let { value, ref, units } = extractValueAndRef(line.items, '', colMap);
+  const scale = unitScale(units);
+  if (value !== null) value = value * scale;
+  if (scale !== 1) ref = scaleRef(ref, scale);
+  let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value);
+
+  // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
+  // look at the next line to get a value/ref so we can disambiguate.
+  // Only peek when current line has no value — otherwise we'd grab the next marker's data.
+  if (!canonical && lm.candidates.length > 0 && value === null) {
+    const la = peekNextValue(allLines, i, colMap);
+    if (la.value !== null) {
+      canonical = disambiguate(lm.candidates, la.ref, la.value);
+      if (canonical) { value = la.value; ref = la.ref; }
+    }
+  }
+
+  if (!canonical || extracted[canonical]) return;
+
+  // Look ahead if value is still missing or out of physiological range
+  if (value === null || !inValueRange(canonical, value)) {
+    ({ value, ref } = lookAheadValue(allLines, i, canonical, colMap, extracted));
+  }
+
+  if (value === null || !inValueRange(canonical, value)) return;
+
+  extracted[canonical] = { value, ref: ref ?? REF_RANGES[canonical] ?? '' };
 }
