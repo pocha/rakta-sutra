@@ -340,6 +340,7 @@
   "datePatterns": [
     { "source": "\\b(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})\\b", "flags": "", "day": 1, "month": 2, "year": 3, "monthIsNumeric": true },
     { "source": "\\b(\\d{1,2})[\\/\\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\\/\\-](\\d{4})\\b", "flags": "i", "day": 1, "month": 2, "year": 3, "monthIsNumeric": false },
+    { "source": "\\b(\\d{1,2})[\\/\\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\\/\\-](\\d{2})\\b", "flags": "i", "day": 1, "month": 2, "year": 3, "monthIsNumeric": false },
     { "source": "\\b(\\d{1,2})\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[,\\s]+(\\d{4})\\b", "flags": "i", "day": 1, "month": 2, "year": 3, "monthIsNumeric": false }
   ],
   "layout": {

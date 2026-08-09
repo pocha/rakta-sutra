@@ -101,17 +101,38 @@ function scaleRef(ref, scale) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Date extraction
 // ─────────────────────────────────────────────────────────────────────────────
+// A 2-digit year group (e.g. "25" in "08-Aug-25") is always read as 20YY —
+// blood reports in this app are never plausibly from before 2000.
+function fullYear(y) {
+  return y.length === 2 ? `20${y}` : y;
+}
+
+// Returns { date, ambiguous, alternate } — ambiguous is true only for the
+// purely-numeric day/month pattern when both groups are <= 12 and differ
+// from each other, i.e. "07/10/2025" could genuinely be either 7 Oct or 10
+// Jul with no way to tell from the text alone. Named-month matches (day is
+// unambiguous once the month is spelled out) and cases where the numeric
+// groups aren't swappable (e.g. one is > 12) are never ambiguous. Callers
+// with a UI should prompt using `date` as the pre-filled default and offer
+// `alternate` as the correction when `ambiguous` is true — see ReportTab
+// .svelte / app.js.
 function parseDate(text) {
   for (const { re, day, month, year, monthIsNumeric } of DATE_PATTERNS) {
     const m = text.match(re);
     if (!m) continue;
     if (monthIsNumeric) {
-      if (parseInt(m[month]) > 12) continue; // not a valid month — try the next pattern
-      return `${m[year]}-${m[month].padStart(2,'0')}-${m[day].padStart(2,'0')}`;
+      const d = parseInt(m[day], 10), mo = parseInt(m[month], 10);
+      if (mo > 12) continue; // not a valid month — try the next pattern
+      const date = `${fullYear(m[year])}-${m[month].padStart(2,'0')}-${m[day].padStart(2,'0')}`;
+      if (d <= 12 && d !== mo) {
+        const alternate = `${fullYear(m[year])}-${m[day].padStart(2,'0')}-${m[month].padStart(2,'0')}`;
+        return { date, ambiguous: true, alternate };
+      }
+      return { date, ambiguous: false, alternate: null };
     }
     const mm = MONTH_MAP[m[month].toLowerCase().slice(0,3)];
     if (!mm) continue;
-    return `${m[year]}-${mm}-${m[day].padStart(2,'0')}`;
+    return { date: `${fullYear(m[year])}-${mm}-${m[day].padStart(2,'0')}`, ambiguous: false, alternate: null };
   }
   return null;
 }
@@ -319,6 +340,83 @@ const NUM_WITH_TRAILING_RE = /^(-?\d+\.?\d*)\s+(\S.*)$/;
 const CENSORED_NUM_RE = /^[<>≤≥]\s*(-?\d+\.?\d*)$/;
 const RANGE_RE = /^\d+\.?\d*\s*[-–]\s*\d+\.?\d*$|^[<>≤≥]=?\s*\d+\.?\d*$|^\d+:\d+\s*[-–]\s*\d+:\d+$/;
 
+// Shared value-token parser, tried in this order regardless of layout
+// (headed or headerless): a bare number, a number with trailing unit text
+// glued on, or a censored ("< X") value. Used by every value-matching site
+// below so headerless reports get the same tiered fallback headed ones do.
+function parseValueToken(rawText) {
+  const t = rawText.trim().replace(/,/g, '');
+  if (NUM_RE.test(t)) return { value: parseFloat(t), units: null };
+  // Only accept the trailing text as a unit if it's digit-free — a real unit
+  // never contains one, whereas this same shape also matches the leading
+  // day of an unrelated date/timestamp string (e.g. "27 Mar 2024, 01:29 PM"),
+  // which headerless mode has no column position to filter out.
+  const m = t.match(NUM_WITH_TRAILING_RE);
+  if (m && !/\d/.test(m[2])) return { value: parseFloat(m[1]), units: m[2] };
+  const cm = t.match(CENSORED_NUM_RE);
+  if (cm) return { value: parseFloat(cm[1]), units: null };
+  return null;
+}
+
+// A comparison operator alone (e.g. a stray "<" item, its number fragmented
+// into a separate item — see reconstructRefRange) is NOT treated as a
+// complete ref range here; it must be followed by a digit somewhere, or
+// reconstruction never gets a chance to run since ref would already be set.
+const isRefRangeToken = t => RANGE_RE.test(t) || /^[<>≤≥]=?\s*\d/.test(t);
+
+// Reconstructs a reference range a report generator split across multiple
+// adjacent PDF text items, when no single item matched isRefRangeToken on
+// its own. Handles two shapes seen in the wild: two bare numbers meant to
+// be the low/high bound ("150", "199" -> "150-199"), and a comparison
+// operator separated from its number/parens ("(", "<", " 200)" -> "< 200").
+function reconstructRefRange(items) {
+  const cleaned = items.map(it => it.text.replace(/\x00/g, '').trim()).filter(Boolean);
+  const nums = cleaned.filter(t => /^\d+\.?\d*$/.test(t));
+  if (nums.length >= 2) return nums[0] + '-' + nums[1];
+  const joined = cleaned.join(' ').replace(/[()]/g, '').replace(/\s+/g, ' ').trim();
+  const m = joined.match(/^([<>≤≥]=?)\s*(\d+\.?\d*)$/);
+  return m ? `${m[1]} ${m[2]}` : null;
+}
+
+// Scans a row's items for value/ref/units. When colMap has a position for
+// value/reference/units, candidates are filtered to that column; otherwise
+// (headerless layout) every item in the row is a candidate. This positional
+// filtering is the only difference between headed and headerless layouts —
+// the token parsing and ref-range reconstruction below is identical either way.
+function scanRowForValueRefUnits(items, colMap) {
+  const hasValueCol = !!colMap && colMap.value !== undefined;
+  const hasRefCol = !!colMap && colMap.reference !== undefined;
+  const hasUnitsCol = !!colMap && colMap.units !== undefined;
+  const valCutoff = hasValueCol ? colMap.value - LAYOUT.nameValueCutoff : -Infinity;
+
+  let value = null, ref = null, units = '';
+  const refCandidates = [];
+  for (const item of items) {
+    const t = item.text.trim();
+    const inValueCol = hasValueCol
+      ? item.x >= valCutoff && Math.abs(item.x - colMap.value) < LAYOUT.valueColumnTolerance
+      : true;
+    if (value === null && inValueCol) {
+      const parsed = parseValueToken(t);
+      if (parsed) { value = parsed.value; if (!units && parsed.units) units = parsed.units; }
+    }
+    const inRefCol = hasRefCol ? Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance : true;
+    if (inRefCol) {
+      if (ref === null && isRefRangeToken(t)) ref = t;
+      refCandidates.push(item);
+    }
+    // Units are sometimes split across multiple PDF text items in the same
+    // column (e.g. "g", "/", "dL") — accumulate all of them, or a
+    // multi-token unit like "g/dL" collapses to just "g" and
+    // disambiguateByUnit silently fails to recognize the unit's shape.
+    if (hasUnitsCol && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
+      if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
+    }
+  }
+  if (ref === null) ref = reconstructRefRange(refCandidates);
+  return { value, ref, units };
+}
+
 function extractValueAndRef(lineItems, alias, colMap) {
   // When alias is provided, find where the marker name ends so we skip name tokens
   let markerEndX = 0;
@@ -333,58 +431,7 @@ function extractValueAndRef(lineItems, alias, colMap) {
     }
   }
   const after = lineItems.filter(i => i.x >= markerEndX - LAYOUT.markerEndTolerance);
-  let value = null, ref = null, units = '';
-
-  if (colMap && (colMap.value !== undefined || colMap.reference !== undefined)) {
-    const valCutoff = colMap.value !== undefined ? colMap.value - LAYOUT.nameValueCutoff : 0;
-    for (const item of after) {
-      const t = item.text.trim();
-      if (value === null && colMap.value !== undefined && item.x >= valCutoff && Math.abs(item.x - colMap.value) < LAYOUT.valueColumnTolerance) {
-        const cleaned = t.replace(/,/g, '');
-        if (NUM_RE.test(cleaned)) {
-          value = parseFloat(cleaned);
-        } else {
-          const m = cleaned.match(NUM_WITH_TRAILING_RE);
-          if (m) {
-            value = parseFloat(m[1]);
-            if (!units) units = m[2];
-          } else {
-            const cm = cleaned.match(CENSORED_NUM_RE);
-            if (cm) value = parseFloat(cm[1]);
-          }
-        }
-      }
-      if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
-        if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
-      }
-      // Units are sometimes split across multiple PDF text items in the same
-      // column (e.g. "g", "/", "dL") — accumulate all of them, or a
-      // multi-token unit like "g/dL" collapses to just "g" and
-      // disambiguateByUnit silently fails to recognize the unit's shape.
-      if (colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
-        if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
-      }
-    }
-    // Null-byte ref reconstruction (Orange): two separate numeric items near reference column
-    if (ref === null && colMap.reference !== undefined) {
-      const refNums = after
-        .filter(it => Math.abs(it.x - colMap.reference) < LAYOUT.referenceColumnTolerance)
-        .map(it => it.text.replace(/\x00/g, '').trim())
-        .filter(t => /^\d+\.?\d*$/.test(t));
-      if (refNums.length >= 2) ref = refNums[0] + '-' + refNums[1];
-    }
-  } else {
-    // No colMap: scan linearly for first number and first range (no colMap = no position anchor)
-    for (const item of after) {
-      const t = item.text.trim().replace(/,/g, '');
-      if (NUM_RE.test(t)) { value = parseFloat(t); break; }
-    }
-    for (const item of after) {
-      const t = item.text.trim();
-      if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) { ref = t; break; }
-    }
-  }
-  return { value, ref, units };
+  return scanRowForValueRefUnits(after, colMap);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -395,40 +442,7 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
   for (let j = i + 1; j <= Math.min(i + LAYOUT.lookAheadLines, allLines.length - 1); j++) {
     const next = allLines[j];
     if (next.pageBreak) break;
-    let value = null, ref = null, units = '';
-    if (colMap?.value !== undefined) {
-      const laValCutoff = colMap.value - LAYOUT.nameValueCutoff;
-      for (const item of next.items) {
-        const t = item.text.trim();
-        if (value === null && item.x >= laValCutoff && Math.abs(item.x - colMap.value) < LAYOUT.valueColumnTolerance) {
-          const n = parseFloat(t.replace(/,/g, ''));
-          if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
-        }
-        if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
-          if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
-        }
-        // Units are sometimes split across multiple PDF text items in the
-        // same column (e.g. "g", "/", "dL") — accumulate all of them, or a
-        // multi-token unit like "g/dL" collapses to just "g" and
-        // disambiguateByUnit silently fails to recognize the unit's shape.
-        if (colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
-          if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
-        }
-      }
-      // Null-byte ref reconstruction (Orange)
-      if (ref === null && colMap.reference !== undefined) {
-        const refNums = next.items
-          .filter(it => Math.abs(it.x - colMap.reference) < LAYOUT.referenceColumnTolerance)
-          .map(it => it.text.replace(/\x00/g, '').trim())
-          .filter(t => /^\d+\.?\d*$/.test(t));
-        if (refNums.length >= 2) ref = refNums[0] + '-' + refNums[1];
-      }
-    } else {
-      for (const item of next.items) {
-        const t = item.text.trim().replace(/,/g, '');
-        if (NUM_RE.test(t)) { value = parseFloat(t); break; }
-      }
-    }
+    let { value, ref, units } = scanRowForValueRefUnits(next.items, colMap);
     const laScale = unitScale(units);
     if (value !== null) value = value * laScale;
     if (value !== null && inValueRange(canonical, value)) return { value, ref: scaleRef(ref, laScale) };
@@ -453,40 +467,7 @@ function peekNextValue(allLines, i, colMap) {
   for (let j = i + 1; j <= Math.min(i + LAYOUT.lookAheadLines, allLines.length - 1); j++) {
     const next = allLines[j];
     if (next.pageBreak) break;
-    let value = null, ref = null, units = '';
-    if (colMap?.value !== undefined) {
-      const pkValCutoff = colMap.value - LAYOUT.nameValueCutoff;
-      for (const item of next.items) {
-        const t = item.text.trim();
-        if (value === null && item.x >= pkValCutoff && Math.abs(item.x - colMap.value) < LAYOUT.valueColumnTolerance) {
-          const n = parseFloat(t.replace(/,/g, ''));
-          if (!isNaN(n) && NUM_RE.test(t.replace(/,/g, ''))) value = n;
-        }
-        if (ref === null && colMap.reference !== undefined && Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance) {
-          if (RANGE_RE.test(t) || /^[<>≤≥]/.test(t)) ref = t;
-        }
-        // Units are sometimes split across multiple PDF text items in the
-        // same column (e.g. "g", "/", "dL") — accumulate all of them, or a
-        // multi-token unit like "g/dL" collapses to just "g" and
-        // disambiguateByUnit silently fails to recognize the unit's shape.
-        if (colMap.units !== undefined && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
-          if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
-        }
-      }
-      // Null-byte ref reconstruction (Orange)
-      if (ref === null && colMap.reference !== undefined) {
-        const refNums = next.items
-          .filter(it => Math.abs(it.x - colMap.reference) < LAYOUT.referenceColumnTolerance)
-          .map(it => it.text.replace(/\x00/g, '').trim())
-          .filter(t => /^\d+\.?\d*$/.test(t));
-        if (refNums.length >= 2) ref = refNums[0] + '-' + refNums[1];
-      }
-    } else {
-      for (const item of next.items) {
-        const t = item.text.trim().replace(/,/g, '');
-        if (NUM_RE.test(t)) { value = parseFloat(t); break; }
-      }
-    }
+    const { value, ref, units } = scanRowForValueRefUnits(next.items, colMap);
     if (value !== null) return { value, ref, units };
     // Stop if this line is a marker name — don't skip over it to grab its value
     const pkNameItems = colMap?.value !== undefined
@@ -547,7 +528,7 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
     throw new Error('This PDF appears to be a scanned image — text extraction is not possible.');
   }
 
-  const date = extractDate(allLines.slice(0, 50));
+  const dateResult = extractDate(allLines.slice(0, 50));
 
   const extracted = {};
   let colMap = null;
@@ -590,7 +571,12 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
     }
   }
 
-  return { date, extracted };
+  return {
+    date: dateResult?.date ?? null,
+    dateAmbiguous: dateResult?.ambiguous ?? false,
+    dateAlternate: dateResult?.alternate ?? null,
+    extracted,
+  };
 }
 
 // Attempts to extract one marker from a single line, mutating `extracted`

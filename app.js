@@ -24,14 +24,14 @@ configureParser(parserConfig, wordMap);
 // (err.name === 'PasswordException') rather than returning empty results.
 async function parsePDF(file) {
   let password;
-  let date, extracted;
+  let date, dateAmbiguous, dateAlternate, extracted;
   for (;;) {
     try {
       // file.arrayBuffer() can be called again for each retry — unlike a
       // reused ArrayBuffer, a File/Blob isn't consumed by reading it, so
       // this always hands pdf.js a fresh, undetached buffer.
       const arrayBuffer = await file.arrayBuffer();
-      ({ date, extracted } = await extractFromPdf(arrayBuffer, pdfjsLib, password));
+      ({ date, dateAmbiguous, dateAlternate, extracted } = await extractFromPdf(arrayBuffer, pdfjsLib, password));
       break;
     } catch (err) {
       if (err.name !== 'PasswordException') throw err;
@@ -39,7 +39,19 @@ async function parsePDF(file) {
       if (!password) throw new Error('Password required — skipped');
     }
   }
-  const reportDate = date ?? (window.prompt(`Could not detect date in "${file.name}".\nEnter test date (YYYY-MM-DD):`, '') || 'Unknown');
+  // dateAmbiguous means the numeric day/month order genuinely could go
+  // either way (e.g. "07/10/2025") — prompt with our best guess pre-filled
+  // rather than silently picking one. Accepting the default (just hitting
+  // OK) keeps `date` as-is; editing the field corrects it.
+  let reportDate = date;
+  if (dateAmbiguous) {
+    reportDate = window.prompt(
+      `The date in "${file.name}" could be ${date} or ${dateAlternate} — which is correct?\nEdit below if neither is right (YYYY-MM-DD):`,
+      date
+    ) || date;
+  } else if (!reportDate) {
+    reportDate = window.prompt(`Could not detect date in "${file.name}".\nEnter test date (YYYY-MM-DD):`, '') || 'Unknown';
+  }
   return { date: reportDate, extracted };
 }
 
