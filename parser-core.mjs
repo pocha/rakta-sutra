@@ -17,6 +17,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 let VALUE_LIMITS = null;
+let MARKER_UNITS = null;
 export let REF_RANGES = null;
 export let MARKER_GROUPS = null;
 export let KEYWORD_MAP = null;
@@ -45,6 +46,7 @@ const MONTH_MAP = {
 // auto-generated from the marker list rather than maintained by hand.
 export function configureParser(config, wordMap = {}) {
   VALUE_LIMITS = config.valueLimits;
+  MARKER_UNITS = config.units ?? {};
   REF_RANGES = config.refRanges;
   MARKER_GROUPS = config.markerGroups;
   KEYWORD_MAP = { ...config.keywordMap, ...wordMap };
@@ -89,6 +91,24 @@ function unitScale(units) {
   const u = units.replace(/\s/g, '');
   if (/10[⁶6]/.test(u)) return 1_000_000;
   if (/10[³3]/.test(u) || /10\^3/.test(u)) return 1000;
+  return 1;
+}
+
+// Per-marker unit conversion — distinct from unitScale() above, which only
+// handles the generic "10^3"/"10^6" cell-count multiplier notation shared
+// across cell-count markers. This instead converts a value printed in an
+// alternate unit (e.g. T3 as "ng/dL" when our default/tracked unit is
+// "ng/mL") into the marker's default unit, so VALUE_LIMITS plausibility
+// checks — and everything stored/displayed — are always in that one unit.
+// A marker with no config.units entry (the common case) is unaffected.
+function markerUnitScale(canonical, unitsText) {
+  if (!unitsText || !canonical) return 1;
+  const list = MARKER_UNITS[canonical];
+  if (!list) return 1;
+  const u = unitsText.toLowerCase();
+  for (const { unit, scale } of list) {
+    if (u.includes(unit.toLowerCase())) return scale;
+  }
   return 1;
 }
 
@@ -195,6 +215,23 @@ function compactNorm(text) {
   return text.replace(/\x00/g, '').toUpperCase().replace(/AE/g, 'E').replace(/[^A-Z0-9]/g, '');
 }
 
+// A keyword this short (e.g. "LH", "PT", "ALT") is a substring-collision
+// magnet: compactNorm() strips spaces/punctuation before matching, so
+// "medical history" silently becomes "MEDICALHISTORY" — which contains
+// "LH" at the seam between the two words, even though neither word has
+// anything to do with Luteinizing Hormone. Below this length, require the
+// keyword to be a whole token on its own (see SHORT_KEYWORD_MAX_LEN below)
+// rather than a raw substring of the fully-merged line.
+const SHORT_KEYWORD_MAX_LEN = 3;
+
+// Same word-splitting rule generate-wordmap.js uses to derive keywords from
+// marker names — kept in sync so a compound abbreviation like "SGPT/ALT"
+// still tokenizes into two separate words ("SGPT", "ALT") rather than
+// fusing into one, which would defeat exact-match for short keywords.
+function tokenize(text) {
+  return text.split(/[\s/(),-]+/).map(compactNorm).filter(Boolean);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Marker matching — keyword fingerprint on compact line text
 // Returns { canonical, candidates } or null
@@ -202,9 +239,11 @@ function compactNorm(text) {
 export function matchLine(lineText) {
   const compact = compactNorm(lineText);
   if (!compact) return null;
+  const tokens = new Set(tokenize(lineText));
   const scores = {};  // canonical → hit count
   for (const [kw, canonicals] of KEYWORD_ENTRIES) {
-    if (!compact.includes(kw)) continue;
+    const hit = kw.length <= SHORT_KEYWORD_MAX_LEN ? tokens.has(kw) : compact.includes(kw);
+    if (!hit) continue;
     for (const c of canonicals) scores[c] = (scores[c] ?? 0) + 1;
   }
   const entries = Object.entries(scores);
@@ -443,7 +482,7 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
     const next = allLines[j];
     if (next.pageBreak) break;
     let { value, ref, units } = scanRowForValueRefUnits(next.items, colMap);
-    const laScale = unitScale(units);
+    const laScale = unitScale(units) * markerUnitScale(canonical, units);
     if (value !== null) value = value * laScale;
     if (value !== null && inValueRange(canonical, value)) return { value, ref: scaleRef(ref, laScale) };
     // Stop if next line matches an unextracted marker
@@ -531,42 +570,64 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
   const dateResult = extractDate(allLines.slice(0, 50));
 
   const extracted = {};
-  let colMap = null;
-  let anyColMapFound = false;
 
-  for (let i = 0; i < allLines.length; i++) {
-    const line = allLines[i];
-    if (line.pageBreak) { colMap = null; continue; }
-    if (shouldSkip(line.text)) continue;
-    const newMap = detectColMap(line);
-    if (newMap) {
-      colMap = newMap;
-      anyColMapFound = true;
-      // Don't continue — the header line may also contain data (Thyrocare Hemoglobin)
-    }
-
-    // Only extract after we've found a header row — skips index/TOC pages
-    if (!colMap) continue;
-
-    tryExtractLine(line, i, allLines, colMap, extracted);
-  }
-
+  // A single document-wide "did we ever see a header" flag is too coarse:
+  // one lucky/accidental colMap match anywhere in the document (e.g. a
+  // section title that happens to satisfy COL_PATTERNS.test) suppresses the
+  // headerless fallback for every OTHER page too, even ones that never got
+  // their own colMap and so extracted nothing at all. Decide per page
+  // instead — a page falls back to headerless extraction only if it never
+  // found its own colMap at all (not merely "found zero new markers" —
+  // that's also true of a legitimate repeat/summary page reprinting markers
+  // already extracted elsewhere, which must NOT be re-scanned headerlessly).
+  //
   // Some report formats never print a detectable column header at all — no
   // "Test"/"Investigation"/"Parameter" label above the marker-name column,
-  // just the values sitting there implicitly (e.g. innoquest.pdf). The pass
-  // above never got a colMap and skipped every line as a result. Fall back
-  // to a headerless pass: match marker keywords directly against each
-  // line's own text and scan linearly for a value/range on that line (or
-  // the next couple, via the same lookahead used above) instead of
-  // anchoring on column x-position — extractValueAndRef/lookAheadValue/
-  // peekNextValue already fall back to exactly that when colMap is
-  // undefined. Only attempted when column-anchored extraction found no
-  // header at all anywhere in the document, so well-structured reports
-  // that already work are unaffected.
-  if (!anyColMapFound) {
-    for (let i = 0; i < allLines.length; i++) {
+  // just the values sitting there implicitly (e.g. innoquest.pdf). Headerless
+  // fallback matches marker keywords directly against each line's own text
+  // and scans linearly for a value/range on that line (or the next couple,
+  // via the same lookahead used above) instead of anchoring on column
+  // x-position — extractValueAndRef/lookAheadValue/peekNextValue already
+  // fall back to exactly that when colMap is undefined.
+  //
+  // Two full passes, not one interleaved pass: headerless matching is far
+  // more collision-prone (no column position to filter candidates), so a
+  // headerless-eligible page appearing BEFORE a page with a real header
+  // must never be allowed to grab a marker first and lock out the correct,
+  // column-anchored value that a later page would otherwise have found —
+  // tryExtractLine skips a marker once `extracted` already has it. Running
+  // every page's headed pass to completion first, then only falling back
+  // to headerless on pages that never found their own colMap, guarantees
+  // real headed data always wins regardless of page order.
+  const headerlessPages = [];
+  let pageStart = null;
+  for (let i = 0; i <= allLines.length; i++) {
+    const isBreak = i === allLines.length || allLines[i].pageBreak;
+    if (!isBreak) continue;
+    if (pageStart !== null) {
+      let colMap = null;
+      let foundColMap = false;
+      for (let j = pageStart; j < i; j++) {
+        const line = allLines[j];
+        if (shouldSkip(line.text)) continue;
+        const newMap = detectColMap(line);
+        if (newMap) {
+          colMap = newMap;
+          foundColMap = true;
+          // Don't continue — the header line may also contain data (Thyrocare Hemoglobin)
+        }
+        // Only extract after we've found a header row — skips index/TOC pages
+        if (!colMap) continue;
+        tryExtractLine(line, j, allLines, colMap, extracted);
+      }
+      if (!foundColMap) headerlessPages.push([pageStart, i]);
+    }
+    pageStart = i + 1;
+  }
+  for (const [start, end] of headerlessPages) {
+    for (let i = start; i < end; i++) {
       const line = allLines[i];
-      if (line.pageBreak || shouldSkip(line.text)) continue;
+      if (shouldSkip(line.text)) continue;
       tryExtractLine(line, i, allLines, undefined, extracted);
     }
   }
@@ -598,6 +659,16 @@ function tryExtractLine(line, i, allLines, colMap, extracted) {
   if (value !== null) value = value * scale;
   if (scale !== 1) ref = scaleRef(ref, scale);
   let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value, units);
+
+  // Normalize into the marker's default unit BEFORE the plausibility check
+  // below — a value still in its as-printed alternate unit (e.g. T3 as
+  // "97.33 ng/dL") looks physiologically implausible against limits meant
+  // for the default unit and would otherwise be discarded or trigger a
+  // lookAheadValue search that wanders into an unrelated line's value.
+  if (canonical) {
+    const mScale = markerUnitScale(canonical, units);
+    if (mScale !== 1 && value !== null) { value = value * mScale; ref = scaleRef(ref, mScale); }
+  }
 
   // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
   // look at the next line to get a value/ref so we can disambiguate.

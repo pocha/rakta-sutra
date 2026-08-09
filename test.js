@@ -18,7 +18,17 @@ const REPORT_PATH = path.join(__dirname, 'test-report.txt');
 const PDF_NAMES = [
   'orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf', 'aarthi-scans.pdf', 'neuberg-anand.pdf', 'innoquest.pdf',
   '2025-12-full-body.pdf', 'metropolis.pdf', 'thyrocare-arogyam-1.3.pdf', 'toxic-nutrient-thyrocare.pdf', 'urine-markers.pdf', 'vitamins.pdf',
+  '2023_Nov03_Innoquest_Part2.pdf', '2023_Nov_Innoquest_20231103.pdf', '2024_Dec20_in_red.pdf', '2024_March_Triglycerides.pdf',
+  '2025_August_MedPlus_Hyd.pdf', 'Bluttuning Stand 05.01.2021.pdf', 'Musterbefund-Gesund-und-Aktiv.pdf', 'Musterbefund-Mikronährstoffe.pdf',
+  'innoquest-password-protected.pdf', 'quest-diagnostics-US.pdf',
 ];
+
+// Password-protected sample reports — filename -> password. Not a secret
+// worth guarding; these are local, gitignored sample PDFs used only for
+// parser regression testing.
+const PDF_PASSWORDS = {
+  'innoquest-password-protected.pdf': '195Z24051982',
+};
 
 // Fixtures are the hand-verified ground truth for each report — marker name
 // -> expected value only (no ref; ref is a config-default/disambiguation
@@ -89,7 +99,7 @@ async function main() {
     if (!fs.existsSync(pdfPath)) { console.log(`SKIP: ${name} not found`); continue; }
     process.stdout.write(`Parsing ${name}... `);
     try {
-      const r = await parsePDF(readArrayBuffer(pdfPath), pdfjsLib);
+      const r = await parsePDF(readArrayBuffer(pdfPath), pdfjsLib, PDF_PASSWORDS[name]);
       results.push({ name, date: r.date, extracted: r.extracted });
       console.log(`done  [${r.date}]  ${Object.keys(r.extracted).length} markers found`);
     } catch (err) {
