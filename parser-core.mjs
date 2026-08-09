@@ -422,13 +422,20 @@ function reconstructRefRange(items) {
 // (headerless layout) every item in the row is a candidate. This positional
 // filtering is the only difference between headed and headerless layouts —
 // the token parsing and ref-range reconstruction below is identical either way.
+// Matches a unit printed as its own separate PDF text item next to (not
+// glued onto) the number — "mmol/L", "ng/dL", "umol/L", "IU/mL". Requires a
+// "/" so ordinary words (marker names, "Total", row labels) never qualify;
+// only used as a fallback when there's no colMap.units to position-filter
+// against, so it's restricted to items appearing after the value itself.
+const UNIT_TOKEN_RE = /^[a-zA-Zμµ][a-zA-Zμµ%0-9]*\/[a-zA-Zμµ][a-zA-Zμµ0-9]*$/;
+
 function scanRowForValueRefUnits(items, colMap) {
   const hasValueCol = !!colMap && colMap.value !== undefined;
   const hasRefCol = !!colMap && colMap.reference !== undefined;
   const hasUnitsCol = !!colMap && colMap.units !== undefined;
   const valCutoff = hasValueCol ? colMap.value - LAYOUT.nameValueCutoff : -Infinity;
 
-  let value = null, ref = null, units = '';
+  let value = null, ref = null, units = '', valueItemX = null;
   const refCandidates = [];
   for (const item of items) {
     const t = item.text.trim();
@@ -437,7 +444,11 @@ function scanRowForValueRefUnits(items, colMap) {
       : true;
     if (value === null && inValueCol) {
       const parsed = parseValueToken(t);
-      if (parsed) { value = parsed.value; if (!units && parsed.units) units = parsed.units; }
+      if (parsed) {
+        value = parsed.value;
+        valueItemX = item.x;
+        if (!units && parsed.units) units = parsed.units;
+      }
     }
     const inRefCol = hasRefCol ? Math.abs(item.x - colMap.reference) < LAYOUT.referenceColumnTolerance : true;
     if (inRefCol) {
@@ -450,6 +461,16 @@ function scanRowForValueRefUnits(items, colMap) {
     // disambiguateByUnit silently fails to recognize the unit's shape.
     if (hasUnitsCol && Math.abs(item.x - colMap.units) < LAYOUT.unitsColumnTolerance) {
       if (t && !/^\d+\.?\d*$/.test(t) && !RANGE_RE.test(t)) units += t;
+    }
+  }
+  // No units column to anchor to (headerless mode, or a page whose header
+  // never got detected) — fall back to the first unit-shaped item printed
+  // after the value itself, e.g. "4.86 | mmol/L | (< 5.20)".
+  if (!hasUnitsCol && !units && valueItemX !== null) {
+    for (const item of items) {
+      if (item.x <= valueItemX) continue;
+      const t = item.text.trim();
+      if (UNIT_TOKEN_RE.test(t)) { units = t; break; }
     }
   }
   if (ref === null) ref = reconstructRefRange(refCandidates);

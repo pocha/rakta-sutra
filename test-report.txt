@@ -1,10 +1,9 @@
 Track Blood — parser regression report
-Generated: 2026-08-09T22:50:29.661Z
+Generated: 2026-08-09T22:59:32.813Z
 
 orange.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-tata-1mg.pdf: coverage 97.8%  error 2.2%  spurious 1
-  WRONG     Thyroid Stimulating Hormone (expected 3.582, got 1.18)
+tata-1mg.pdf: coverage 100.0%  error 0.0%  spurious 1
   SPURIOUS  Calcium (got 12.95)
 
 thyrocare.pdf: coverage 100.0%  error 0.0%  spurious 0
@@ -29,11 +28,7 @@ urine-markers.pdf: coverage 100.0%  error 0.0%  spurious 0
 
 vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-2023_Nov03_Innoquest_Part2.pdf: coverage 45.8%  error 0.0%  spurious 1
-  MISSED    Total Cholesterol (expected 188)
-  MISSED    HDL Cholesterol (expected 42)
-  MISSED    LDL Cholesterol (expected 123)
-  MISSED    Triglycerides (expected 96)
+2023_Nov03_Innoquest_Part2.pdf: coverage 52.5%  error 0.0%  spurious 1
   MISSED    Urea (expected 24.6)
   MISSED    Creatinine (expected 1.02)
   MISSED    Creatinine (Urine) (expected 80)
@@ -64,8 +59,7 @@ vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
   MISSED    Adjusted Calcium (expected 9)
   SPURIOUS  Blood Urea Nitrogen (got 4.1)
 
-2023_Nov_Innoquest_20231103.pdf: coverage 0.0%  error 100.0%  spurious 0
-  WRONG     Zinc (expected 100.4, got 15.35)
+2023_Nov_Innoquest_20231103.pdf: coverage 100.0%  error 0.0%  spurious 0
 
 2024_Dec20_in_red.pdf: coverage 45.5%  error 0.0%  spurious 0
   MISSED    Height (expected 172)
@@ -84,7 +78,7 @@ vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
   WRONG     Triiodothyronine (T3) Total (expected 97.33, got 9.5)
   WRONG     Thyroxine (T4) Total (expected 9.5, got 16)
 
-Bluttuning Stand 05.01.2021.pdf: coverage 11.5%  error 75.9%  spurious 17
+Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 75.0%  spurious 15
   MISSED    White Blood Cell Count (expected 5000)
   MISSED    RBC Count (expected 5)
   MISSED    Red Cell Distribution Width-CV (expected 15)
@@ -98,7 +92,6 @@ Bluttuning Stand 05.01.2021.pdf: coverage 11.5%  error 75.9%  spurious 17
   MISSED    Lymphocytes % (expected 15)
   MISSED    Monocytes % (expected 5)
   MISSED    Eosinophils % (expected 1)
-  MISSED    Neutrophils Absolute (expected 2000)
   MISSED    Lymphocytes Absolute (expected 2000)
   MISSED    Monocytes Absolute (expected 1000)
   MISSED    Basophils Absolute (expected 100)
@@ -115,9 +108,8 @@ Bluttuning Stand 05.01.2021.pdf: coverage 11.5%  error 75.9%  spurious 17
   MISSED    Vitamin B12 (expected 7)
   MISSED    Immunoglobulin A (expected 500)
   MISSED    Coenzyme Q10 (expected 7)
-  MISSED    Vitamin C (expected 7)
-  MISSED    Total PSA (expected 11)
   WRONG     Basophils % (expected 1, got 0.1)
+  WRONG     Neutrophils Absolute (expected 2000, got 200)
   WRONG     Eosinophils Absolute (expected 500, got 0.5)
   WRONG     Total Protein (expected 8, got 10)
   WRONG     Ferritin (expected 50, got 500)
@@ -139,9 +131,9 @@ Bluttuning Stand 05.01.2021.pdf: coverage 11.5%  error 75.9%  spurious 17
   WRONG     Insulin (expected 1, got 80)
   WRONG     Cancer Antigen 15-3 (expected 100, got 1000)
   WRONG     Omega-3 Index (expected 12.5, got 30)
+  WRONG     Total PSA (expected 11, got 15)
   SPURIOUS  Calcium (got 10)
   SPURIOUS  Magnesium (got 1)
-  SPURIOUS  Vitamin D2 (got 7)
   SPURIOUS  Transferrin Saturation (got 19)
   SPURIOUS  Urine Albumin/Creatinine Ratio (got 200)
   SPURIOUS  Alpha-Fetoprotein (got 30)
@@ -151,9 +143,8 @@ Bluttuning Stand 05.01.2021.pdf: coverage 11.5%  error 75.9%  spurious 17
   SPURIOUS  Platelet Large Cell Ratio (got 17)
   SPURIOUS  Triiodothyronine (T3) Total (got 10)
   SPURIOUS  Thyroxine (T4) Total (got 10)
-  SPURIOUS  AST/ALT Ratio (got 1)
-  SPURIOUS  Apolipoprotein B/A1 Ratio (got 1)
   SPURIOUS  VLDL Cholesterol (got 30)
+  SPURIOUS  AST/ALT Ratio (got 2)
   SPURIOUS  Immunoglobulin E (got 1500)
   SPURIOUS  Cancer Antigen 125 (got 4)
 
@@ -212,4 +203,4 @@ quest-diagnostics-US.pdf: coverage 41.7%  error 0.0%  spurious 1
   SPURIOUS  Average Blood Glucose (got 115)
 
 ─────────────────────────────────────────────────────────────────
-TOTAL (23/23 files with fixtures): coverage 81.1%  error 4.4%  spurious 23
+TOTAL (23/23 files with fixtures): coverage 82.0%  error 4.4%  spurious 21
