@@ -1,14 +1,19 @@
 Track Blood — parser regression report
-Generated: 2026-08-09T22:59:32.813Z
+Generated: 2026-08-10T01:28:36.349Z
 
-orange.pdf: coverage 100.0%  error 0.0%  spurious 0
+orange.pdf: coverage 98.7%  error 1.3%  spurious 0
+  WRONG     AST/ALT Ratio (expected 1, got 0.96)
 
-tata-1mg.pdf: coverage 100.0%  error 0.0%  spurious 1
+tata-1mg.pdf: coverage 97.8%  error 0.0%  spurious 1
+  MISSED    LDL/HDL Ratio (expected 2.65)
   SPURIOUS  Calcium (got 12.95)
 
 thyrocare.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-centro-med.pdf: coverage 100.0%  error 0.0%  spurious 0
+centro-med.pdf: coverage 98.1%  error 0.0%  spurious 2
+  MISSED    Neutrophil Lymphocyte Ratio (expected 1.44)
+  SPURIOUS  Albumin/Globulin Ratio (got 1.44)
+  SPURIOUS  Free T4 (got 1.02)
 
 aarthi-scans.pdf: coverage 100.0%  error 0.0%  spurious 0
 
@@ -18,7 +23,8 @@ innoquest.pdf: coverage 100.0%  error 0.0%  spurious 0
 
 2025-12-full-body.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-metropolis.pdf: coverage 100.0%  error 0.0%  spurious 0
+metropolis.pdf: coverage 100.0%  error 0.0%  spurious 1
+  SPURIOUS  Platelet Large Cell Ratio (got 39.7)
 
 thyrocare-arogyam-1.3.pdf: coverage 100.0%  error 0.0%  spurious 0
 
@@ -28,11 +34,8 @@ urine-markers.pdf: coverage 100.0%  error 0.0%  spurious 0
 
 vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-2023_Nov03_Innoquest_Part2.pdf: coverage 52.5%  error 0.0%  spurious 1
-  MISSED    Urea (expected 24.6)
-  MISSED    Creatinine (expected 1.02)
-  MISSED    Creatinine (Urine) (expected 80)
-  MISSED    White Blood Cell Count (expected 6700)
+2023_Nov03_Innoquest_Part2.pdf: coverage 86.4%  error 0.0%  spurious 1
+  MISSED    LDL Cholesterol (expected 122.9706)
   MISSED    Neutrophils Absolute (expected 3040)
   MISSED    Lymphocytes % (expected 36.8)
   MISSED    Lymphocytes Absolute (expected 2470)
@@ -40,28 +43,11 @@ vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
   MISSED    Eosinophils Absolute (expected 600)
   MISSED    Basophils Absolute (expected 70)
   MISSED    Hematocrit (expected 43)
-  MISSED    Platelet Count (expected 230000)
-  MISSED    Thyroid Stimulating Hormone (expected 1.52)
-  MISSED    Total Protein (expected 7.6)
-  MISSED    Albumin (expected 4.8)
-  MISSED    Globulin (expected 2.8)
-  MISSED    Albumin/Globulin Ratio (expected 1.7)
-  MISSED    Bilirubin Total (expected 0.6)
-  MISSED    Alkaline Phosphatase (expected 79)
-  MISSED    ALT (Alanine Transaminase) (expected 17)
-  MISSED    AST (Aspartate Aminotransferase) (expected 25)
-  MISSED    Gamma-Glutamyl Transferase (expected 14)
-  MISSED    Phosphorus (expected 3.25)
-  MISSED    Calcium (expected 9.3)
-  MISSED    Uric Acid (expected 5.88)
-  MISSED    Alpha-Fetoprotein (expected 7)
-  MISSED    Free Thyroxine (Free T4) (expected 1.6)
-  MISSED    Adjusted Calcium (expected 9)
-  SPURIOUS  Blood Urea Nitrogen (got 4.1)
+  SPURIOUS  HDL/LDL Ratio (got 1)
 
 2023_Nov_Innoquest_20231103.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-2024_Dec20_in_red.pdf: coverage 45.5%  error 0.0%  spurious 0
+2024_Dec20_in_red.pdf: coverage 50.0%  error 0.0%  spurious 0
   MISSED    Height (expected 172)
   MISSED    Weight (expected 77)
   MISSED    Waist Circumference (expected 92)
@@ -71,14 +57,13 @@ vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
 
 2024_March_Triglycerides.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-2025_August_MedPlus_Hyd.pdf: coverage 92.1%  error 3.3%  spurious 0
-  MISSED    Apolipoprotein B/A1 Ratio (expected 0.77)
+2025_August_MedPlus_Hyd.pdf: coverage 95.3%  error 1.6%  spurious 1
   MISSED    Urine pH (expected 6)
   MISSED    Urine Specific Gravity (expected 1.007)
-  WRONG     Triiodothyronine (T3) Total (expected 97.33, got 9.5)
-  WRONG     Thyroxine (T4) Total (expected 9.5, got 16)
+  WRONG     T4 Total (expected 9.5, got 16)
+  SPURIOUS  AST/ALT Ratio (got 1)
 
-Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 75.0%  spurious 15
+Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 74.2%  spurious 15
   MISSED    White Blood Cell Count (expected 5000)
   MISSED    RBC Count (expected 5)
   MISSED    Red Cell Distribution Width-CV (expected 15)
@@ -103,13 +88,14 @@ Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 75.0%  spurious 15
   MISSED    Uric Acid (expected 1)
   MISSED    Total Cholesterol (expected 1)
   MISSED    HDL Cholesterol (expected 1)
+  MISSED    Triglycerides (expected 1)
   MISSED    Homocysteine (expected 15.5)
   MISSED    Rheumatoid Factor (expected 20)
   MISSED    Vitamin B12 (expected 7)
   MISSED    Immunoglobulin A (expected 500)
   MISSED    Coenzyme Q10 (expected 7)
   WRONG     Basophils % (expected 1, got 0.1)
-  WRONG     Neutrophils Absolute (expected 2000, got 200)
+  WRONG     Neutrophils Absolute (expected 2000, got 500)
   WRONG     Eosinophils Absolute (expected 500, got 0.5)
   WRONG     Total Protein (expected 8, got 10)
   WRONG     Ferritin (expected 50, got 500)
@@ -122,8 +108,7 @@ Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 75.0%  spurious 15
   WRONG     Urea (expected 1, got 250)
   WRONG     Carcinoembryonic Antigen (expected 1.5, got 15)
   WRONG     Carbohydrate Antigen 19-9 (expected 25, got 250)
-  WRONG     LDL Cholesterol (expected 2, got 100)
-  WRONG     Triglycerides (expected 1, got 30)
+  WRONG     LDL Cholesterol (expected 2, got 30)
   WRONG     Vitamin B9 (expected 7, got 70)
   WRONG     Vitamin A (expected 7, got 70)
   WRONG     Vitamin D (expected 2.8, got 7)
@@ -134,21 +119,21 @@ Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 75.0%  spurious 15
   WRONG     Total PSA (expected 11, got 15)
   SPURIOUS  Calcium (got 10)
   SPURIOUS  Magnesium (got 1)
-  SPURIOUS  Transferrin Saturation (got 19)
-  SPURIOUS  Urine Albumin/Creatinine Ratio (got 200)
-  SPURIOUS  Alpha-Fetoprotein (got 30)
+  SPURIOUS  Alpha-Fetoprotein (got 120)
   SPURIOUS  Urea/Creatinine Ratio (got 50)
   SPURIOUS  Follicle Stimulating Hormone (FSH) (got 7)
   SPURIOUS  Luteinizing Hormone (LH) (got 7)
   SPURIOUS  Platelet Large Cell Ratio (got 17)
   SPURIOUS  Triiodothyronine (T3) Total (got 10)
-  SPURIOUS  Thyroxine (T4) Total (got 10)
   SPURIOUS  VLDL Cholesterol (got 30)
+  SPURIOUS  Cholesterol/HDL Ratio (got 1)
+  SPURIOUS  HDL/LDL Ratio (got 7)
+  SPURIOUS  Urine Albumin/Creatinine Ratio (got 100)
   SPURIOUS  AST/ALT Ratio (got 2)
   SPURIOUS  Immunoglobulin E (got 1500)
   SPURIOUS  Cancer Antigen 125 (got 4)
 
-Musterbefund-Gesund-und-Aktiv.pdf: coverage 35.7%  error 11.8%  spurious 0
+Musterbefund-Gesund-und-Aktiv.pdf: coverage 40.5%  error 15.0%  spurious 0
   MISSED    White Blood Cell Count (expected 5300)
   MISSED    RBC Count (expected 4.5)
   MISSED    Hemoglobin (expected 13.3)
@@ -163,21 +148,19 @@ Musterbefund-Gesund-und-Aktiv.pdf: coverage 35.7%  error 11.8%  spurious 0
   MISSED    Monocytes Absolute (expected 200)
   MISSED    Potassium (expected 4.5)
   MISSED    Sodium (expected 141)
-  MISSED    Calcium (expected 9.58)
   MISSED    Phosphorus (expected 2.88)
   MISSED    Serum Iron (expected 44.68)
   MISSED    AST (Aspartate Aminotransferase) (expected 26)
   MISSED    ALT (Alanine Transaminase) (expected 24)
   MISSED    Fasting Glucose (expected 89)
-  MISSED    Total Cholesterol (expected 202)
-  MISSED    HDL Cholesterol (expected 69)
   MISSED    Uric Acid (expected 5.2)
   MISSED    Urea (expected 26)
   MISSED    Creatinine (expected 0.9)
   WRONG     Eosinophils Absolute (expected 100, got 0.1)
   WRONG     Magnesium (expected 2.5, got 1.03)
+  WRONG     Total Cholesterol (expected 202, got 56)
 
-Musterbefund-Mikronährstoffe.pdf: coverage 12.5%  error 0.0%  spurious 3
+Musterbefund-Mikronährstoffe.pdf: coverage 12.5%  error 0.0%  spurious 4
   MISSED    White Blood Cell Count (expected 6000)
   MISSED    RBC Count (expected 6)
   MISSED    Hemoglobin (expected 15)
@@ -186,13 +169,14 @@ Musterbefund-Mikronährstoffe.pdf: coverage 12.5%  error 0.0%  spurious 3
   MISSED    Mean Corpuscular Hemoglobin Concentration (expected 35)
   MISSED    Platelet Count (expected 250000)
   SPURIOUS  Calcium (got 8)
+  SPURIOUS  Vitamin A (got 400)
   SPURIOUS  Magnesium (got 2)
   SPURIOUS  Vitamin D (got 100)
 
 innoquest-password-protected.pdf: coverage 50.0%  error 0.0%  spurious 0
   MISSED    Prothrombin Time (expected 10)
 
-quest-diagnostics-US.pdf: coverage 41.7%  error 0.0%  spurious 1
+quest-diagnostics-US.pdf: coverage 46.2%  error 0.0%  spurious 1
   MISSED    Fasting Glucose (expected 115)
   MISSED    Non-HDL Cholesterol (expected 83)
   MISSED    Height (expected 162.56)
@@ -203,4 +187,4 @@ quest-diagnostics-US.pdf: coverage 41.7%  error 0.0%  spurious 1
   SPURIOUS  Average Blood Glucose (got 115)
 
 ─────────────────────────────────────────────────────────────────
-TOTAL (23/23 files with fixtures): coverage 82.0%  error 4.4%  spurious 21
+TOTAL (23/23 files with fixtures): coverage 85.3%  error 4.1%  spurious 26
