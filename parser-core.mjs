@@ -592,6 +592,17 @@ function scanRowForValueRefUnits(items, colMap) {
   return { value, ref, units };
 }
 
+// Items left of the value column — i.e. the marker-name portion of a row —
+// or the whole row unfiltered in headerless mode (no value column to anchor
+// to). Shared by every site that needs "just the name text" from a row:
+// tryExtractLine's own line, and lookAheadValue/peekNextValue checking
+// whether the *next* row is itself a marker name before wandering past it.
+function nameItemsOf(items, colMap) {
+  return colMap?.value !== undefined
+    ? items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
+    : items;
+}
+
 function extractValueAndRef(lineItems, alias, colMap) {
   // When alias is provided, find where the marker name ends so we skip name tokens
   let markerEndX = 0;
@@ -622,10 +633,7 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
     if (value !== null) value = value * laScale;
     if (value !== null && inValueRange(canonical, value)) return { value, ref: scaleRef(ref, laScale) };
     // Stop if next line matches an unextracted marker
-    const nameItems = colMap?.value !== undefined
-      ? next.items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
-      : next.items;
-    const nm = matchLine(nameItems.map(it => it.text).join(' '));
+    const nm = matchLine(nameItemsOf(next.items, colMap).map(it => it.text).join(' '));
     if (nm) {
       const nc = nm.canonical ?? disambiguate(nm.candidates, null);
       if (nc && !extracted[nc]) break;
@@ -645,10 +653,7 @@ function peekNextValue(allLines, i, colMap) {
     const { value, ref, units } = scanRowForValueRefUnits(next.items, colMap);
     if (value !== null) return { value, ref, units };
     // Stop if this line is a marker name — don't skip over it to grab its value
-    const pkNameItems = colMap?.value !== undefined
-      ? next.items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
-      : next.items;
-    const pkm = matchLine(pkNameItems.map(it => it.text).join(' '));
+    const pkm = matchLine(nameItemsOf(next.items, colMap).map(it => it.text).join(' '));
     if (pkm) break;
   }
   return { value: null, ref: null, units: '' };
@@ -761,9 +766,7 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
 // in place. `colMap` may be undefined (headerless mode).
 function tryExtractLine(line, i, allLines, colMap, extracted) {
   // Match keywords only against name-column items (left of value column)
-  const nameItems = colMap?.value !== undefined
-    ? line.items.filter(it => it.x < colMap.value - LAYOUT.nameValueCutoff)
-    : line.items;
+  const nameItems = nameItemsOf(line.items, colMap);
   if (!nameItems.length) return;
   const nameText = nameItems.map(it => it.text).join('  ');
 
