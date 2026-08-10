@@ -204,9 +204,19 @@
           const parsed = await parseWithPasswordRetry(file);
           if (!parsed) continue; // user cancelled the password prompt — skip this file
 
-          const { date, extracted } = parsed;
+          const { date, dateAmbiguous, dateAlternate, extracted } = parsed;
           let reportDate = date;
-          if (!reportDate) {
+          // dateAmbiguous means the numeric day/month order genuinely could
+          // go either way (e.g. "07/10/2025") — prompt with our best guess
+          // pre-filled rather than silently picking one. Accepting the
+          // default (just tapping OK) keeps `date` as-is; editing the field
+          // corrects it.
+          if (dateAmbiguous) {
+            reportDate = window.prompt(
+              `The date in "${file.name}" could be ${date} or ${dateAlternate} — which is correct?\nEdit below if neither is right (YYYY-MM-DD):`,
+              date
+            ) || date;
+          } else if (!reportDate) {
             reportDate = window.prompt(`Could not detect a date in "${file.name}".\nEnter the report date (YYYY-MM-DD):`, '');
             if (!reportDate) continue;
           }

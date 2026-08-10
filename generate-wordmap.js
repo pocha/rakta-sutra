@@ -65,6 +65,18 @@ function tokenize(name) {
   return name.split(/[\s/(),-]+/).map(compact).filter(Boolean);
 }
 
+// Naive singular form of a token — strip a trailing "S", but only when the
+// token is long enough that removing it still leaves a real word-shaped
+// result (avoids mangling short words, or words that end in "S" without
+// being a simple plural, e.g. "STATUS"). A real report sometimes prints the
+// singular cell-type name ("Absolute Basophil Count") even though our own
+// marker name is plural ("Basophils Absolute") — this lets that combination
+// get generated mechanically alongside the plural form, instead of needing
+// a hand-curated keywordMap entry per marker.
+function singularize(token) {
+  return token.length > 4 && token.endsWith('S') ? token.slice(0, -1) : null;
+}
+
 const existingKeywords = new Set(Object.keys(config.keywordMap));
 const markers = Object.keys(config.valueLimits);
 const markerCompact = new Map(markers.map(m => [m, compact(m)]));
@@ -90,6 +102,19 @@ for (const marker of markers) {
     // The reversed order is never this marker's canonical full name (that's
     // the forward order) — always a partial-strength claim.
     propose(tokens.slice().reverse().join(''), marker, false);
+  }
+
+  // Same cumulative-prefix/reversal generation again, but with each token
+  // that has a naive singular form swapped in — never this marker's own
+  // full name (that's the plural form above), always partial-strength.
+  const singularTokens = tokens.map(t => singularize(t) ?? t);
+  if (singularTokens.some((t, i) => t !== tokens[i])) {
+    for (let len = 2; len <= singularTokens.length; len++) {
+      propose(singularTokens.slice(0, len).join(''), marker, false);
+    }
+    if (singularTokens.length === 2) {
+      propose(singularTokens.slice().reverse().join(''), marker, false);
+    }
   }
 }
 
@@ -129,7 +154,12 @@ for (const [kw, claimants] of proposals) {
 
 console.log(`Generated ${Object.keys(wordMap).length} keywords from ${markers.length} markers (${skippedExisting} skipped for colliding with an existing keywordMap key, ${skippedAmbiguous} skipped as unresolvably ambiguous, ${skippedForeignSubstring} skipped for being a substring of a different marker's name).`);
 
+// Alphabetical (case-insensitive) so the output is easy to scan/diff by hand
+// — matches parser-config.json's own key ordering.
+const collator = new Intl.Collator('en', { sensitivity: 'base' });
+const sortedEntries = Object.entries(wordMap).sort(([a], [b]) => collator.compare(a, b));
+
 require('fs').writeFileSync(
   './parser-config-wordmap.json',
-  '{\n' + Object.entries(wordMap).map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n') + '\n}\n'
+  '{\n' + sortedEntries.map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n') + '\n}\n'
 );
