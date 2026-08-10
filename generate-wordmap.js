@@ -129,7 +129,12 @@ for (const [kw, claimants] of proposals) {
 
 console.log(`Generated ${Object.keys(wordMap).length} keywords from ${markers.length} markers (${skippedExisting} skipped for colliding with an existing keywordMap key, ${skippedAmbiguous} skipped as unresolvably ambiguous, ${skippedForeignSubstring} skipped for being a substring of a different marker's name).`);
 
+// Alphabetical (case-insensitive) so the output is easy to scan/diff by hand
+// — matches parser-config.json's own key ordering.
+const collator = new Intl.Collator('en', { sensitivity: 'base' });
+const sortedEntries = Object.entries(wordMap).sort(([a], [b]) => collator.compare(a, b));
+
 require('fs').writeFileSync(
   './parser-config-wordmap.json',
-  '{\n' + Object.entries(wordMap).map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n') + '\n}\n'
+  '{\n' + sortedEntries.map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n') + '\n}\n'
 );
