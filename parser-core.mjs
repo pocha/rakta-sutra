@@ -494,11 +494,21 @@ function parseValueToken(rawText) {
   return null;
 }
 
+// A "lo-hi" range with a unit glued onto the same PDF item, e.g.
+// "65-99 mg/dL" — RANGE_RE itself requires the whole item to be just the
+// range (nothing after) since it's also used to keep ref-range-shaped items
+// out of the units accumulator, where this shape never belongs regardless
+// of what follows. This is a separate, narrower pattern just for accepting
+// the token as a real printed ref range in the first place — downstream
+// parsing (disambiguate()'s own ref-range regex) already tolerates trailing
+// text fine, it just never got the chance to see it.
+const RANGE_WITH_UNIT_RE = /^\d+\.?\d*\s*[-–]\s*\d+\.?\d*\s+\D/;
+
 // A comparison operator alone (e.g. a stray "<" item, its number fragmented
 // into a separate item — see reconstructRefRange) is NOT treated as a
 // complete ref range here; it must be followed by a digit somewhere, or
 // reconstruction never gets a chance to run since ref would already be set.
-const isRefRangeToken = t => RANGE_RE.test(t) || /^[<>≤≥]=?\s*\d/.test(t);
+const isRefRangeToken = t => RANGE_RE.test(t) || /^[<>≤≥]=?\s*\d/.test(t) || RANGE_WITH_UNIT_RE.test(t);
 
 // Reconstructs a reference range a report generator split across multiple
 // adjacent PDF text items, when no single item matched isRefRangeToken on
