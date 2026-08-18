@@ -210,7 +210,11 @@ export async function deleteProfile(id) {
 }
 
 // ── Reports & markers ───────────────────────────────────────────────────────
-export async function addReport(profileId, reportDate, fileName, filePath, extractedMarkers) {
+// unvaluedCanonicals: markers whose name matched somewhere in the PDF but
+// that never got a plausible value (parsePDF()'s unvaluedCanonicals) —
+// inserted as {value: null, unit: null} placeholder rows so the Report
+// tab can show a blank, fillable card for them instead of nothing at all.
+export async function addReport(profileId, reportDate, fileName, filePath, extractedMarkers, unvaluedCanonicals = []) {
   await db.beginTransaction();
   try {
     const r = await db.run(
@@ -223,6 +227,14 @@ export async function addReport(profileId, reportDate, fileName, filePath, extra
       await db.run(
         'INSERT INTO markers (report_id, canonical, value, unit) VALUES (?, ?, ?, ?)',
         [reportId, canonical, value, unit ?? null],
+        false
+      );
+    }
+    for (const canonical of unvaluedCanonicals) {
+      if (extractedMarkers[canonical]) continue; // already inserted with a real value above
+      await db.run(
+        'INSERT OR IGNORE INTO markers (report_id, canonical, value, unit) VALUES (?, ?, NULL, NULL)',
+        [reportId, canonical],
         false
       );
     }
@@ -254,7 +266,7 @@ export async function listAllReports() {
 // value for a canonical the user already corrected is silently dropped by
 // INSERT OR IGNORE, since the manually-edited row still occupies that
 // (report_id, canonical) UNIQUE slot.
-export async function replaceAutoExtractedMarkers(reportId, extractedMarkers) {
+export async function replaceAutoExtractedMarkers(reportId, extractedMarkers, unvaluedCanonicals = []) {
   await db.beginTransaction();
   try {
     await db.run('DELETE FROM markers WHERE report_id = ? AND manually_edited = 0', [reportId], false);
@@ -262,6 +274,14 @@ export async function replaceAutoExtractedMarkers(reportId, extractedMarkers) {
       await db.run(
         'INSERT OR IGNORE INTO markers (report_id, canonical, value, unit) VALUES (?, ?, ?, ?)',
         [reportId, canonical, value, unit ?? null],
+        false
+      );
+    }
+    for (const canonical of unvaluedCanonicals) {
+      if (extractedMarkers[canonical]) continue;
+      await db.run(
+        'INSERT OR IGNORE INTO markers (report_id, canonical, value, unit) VALUES (?, ?, NULL, NULL)',
+        [reportId, canonical],
         false
       );
     }

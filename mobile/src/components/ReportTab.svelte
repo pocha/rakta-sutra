@@ -4,25 +4,29 @@
   import { FilePicker } from '@capawesome/capacitor-file-picker';
   import * as db from '../lib/db.js';
   import multiSelectHintImg from '../assets/multiselect-hint.jpg';
-  import { parsePDF, MARKER_GROUPS, REF_RANGES, parseRefRange } from '../lib/parser.js';
-  import { saveReportFile, openReportFile } from '../lib/reports.js';
+  import { parsePDF, MARKER_GROUPS, REF_RANGES } from '../lib/parser.js';
+  import { saveReportFile } from '../lib/reports.js';
   import { appState } from '../lib/state.svelte.js';
   import { showToast } from '../lib/toast.svelte.js';
-  import { truncationCheck } from '../lib/actions.js';
   import { logAnalyticsEvent } from '../lib/analytics.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
+  import MarkerCard from './MarkerCard.svelte';
+  import PdfViewer from './PdfViewer.svelte';
+  import Skeleton from './Skeleton.svelte';
 
   let { profileId } = $props();
 
-  let reports = $state([]);               // [{ id, date, file_name, file_path }] newest first
-  let valuesByCanonical = $state({});      // canonical -> { reportId: value }
-  let refRangeByCanonical = $state({});    // canonical -> ref_range string
-  let pageIndex = $state(0);               // which report's values are currently shown
-  let pagerEl = $state();
+  let loading = $state(true);
+  let reports = $state([]);                // [{ id, date, file_name, file_path }] newest first
+  let currentReportIndex = $state(0);
+  let currentMarkers = $state([]);         // this report's markers: [{canonical, value, unit, ...}]
+  let majorityUnits = $state({});          // canonical -> this profile's most-common unit (chart Y axis)
+  let swipeEl = $state();
+  let pdfPaneVisited = $state(false);      // lazy-loads PdfViewer only once the PDF pane's been reached
   let busy = $state(false);
   let statusMsg = $state('');
-  let flashReportId = $state(null); // briefly highlights the just-uploaded/just-jumped-to column
+  let flashPane = $state(false);           // briefly highlights the card list after a fresh upload
 
   let menuOpen = $state(false);            // FAB action menu
   let addMarkerModalOpen = $state(false);
@@ -37,25 +41,33 @@
   onMount(refresh);
 
   $effect(() => {
-    if (appState.jumpToReportId == null || !pagerEl) return;
+    if (appState.jumpToReportId == null || !reports.length) return;
     const idx = reports.findIndex(r => r.id === appState.jumpToReportId);
-    if (idx >= 0) {
-      tick().then(() => pagerEl.scrollTo({ left: idx * pagerEl.clientWidth, behavior: 'instant' }));
-      pageIndex = idx;
-    }
+    if (idx >= 0) goToReport(idx - currentReportIndex);
     appState.jumpToReportId = null;
   });
 
   async function refresh() {
-    const data = await db.getConsolidatedReportData(profileId);
-    reports = data.reports;
-    valuesByCanonical = data.valuesByCanonical;
-    refRangeByCanonical = data.refRangeByCanonical;
-    if (pageIndex >= reports.length) pageIndex = 0;
+    loading = true;
+    try {
+      reports = await db.listReports(profileId);
+      if (currentReportIndex >= reports.length) currentReportIndex = 0;
+      majorityUnits = await db.getMajorityUnitByCanonical(profileId);
+      await loadCurrentMarkers();
+    } finally {
+      loading = false;
+    }
   }
 
+  async function loadCurrentMarkers() {
+    currentMarkers = currentReport ? await db.getReportMarkers(currentReport.id) : [];
+  }
+
+  const currentReport = $derived(reports[currentReportIndex]);
+  const markerByCanonical = $derived(Object.fromEntries(currentMarkers.map(m => [m.canonical, m])));
+
   const groupedRows = $derived.by(() => {
-    const present = new Set(Object.keys(valuesByCanonical));
+    const present = new Set(currentMarkers.map(m => m.canonical));
     const rows = [];
     for (const group of MARKER_GROUPS) {
       const inGroup = group.keys.filter(k => present.has(k));
@@ -72,36 +84,13 @@
   });
 
   const availableToAdd = $derived(
-    currentReport
-      ? ALL_CANONICALS.filter(c => valuesByCanonical[c]?.[currentReport.id] === undefined)
-      : []
+    currentReport ? ALL_CANONICALS.filter(c => !markerByCanonical[c]) : []
   );
-  const currentReport = $derived(reports[pageIndex]);
   const addSuggestions = $derived(
     addQuery.trim().length >= 3
       ? availableToAdd.filter(c => c.toLowerCase().includes(addQuery.trim().toLowerCase())).slice(0, 8)
       : []
   );
-
-  function outOfRangeFor(canonical, value) {
-    if (value == null || value === '') return false;
-    const bounds = parseRefRange(refRangeByCanonical[canonical]);
-    if (!bounds) return false;
-    return (bounds.low !== null && value < bounds.low) || (bounds.high !== null && value > bounds.high);
-  }
-
-  // '' (not a real unit string) tells upsertMarker/refRangeForUnit "treat
-  // this as the marker's own canonical default unit" — the same implicit
-  // assumption manual entry always made, before there was any per-marker
-  // unit concept at all. This spreadsheet-style manual-entry flow has no
-  // unit picker of its own (that lands with the card-based Report tab
-  // redesign); it's a stopgap, not a place to add one.
-  async function saveValue(reportId, canonical, newValue) {
-    const v = parseFloat(newValue);
-    if (isNaN(v)) return;
-    await db.upsertMarker(reportId, canonical, v, '');
-    await refresh();
-  }
 
   async function addMarkerToCurrentReport() {
     const v = parseFloat(addValue);
@@ -109,7 +98,7 @@
     await db.upsertMarker(currentReport.id, addCanonical, v, '');
     resetAddMarkerForm();
     addMarkerModalOpen = false;
-    await refresh();
+    await loadCurrentMarkers();
   }
 
   function resetAddMarkerForm() {
@@ -131,16 +120,20 @@
     return `${Math.round(days / 365)} year${Math.round(days / 365) > 1 ? 's' : ''} ago`;
   }
 
-  function onScroll(e) {
-    const w = e.target.clientWidth;
-    pageIndex = Math.round(e.target.scrollLeft / w);
+  // '‹' moves toward index-1 (newer report); '›' moves toward index+1 (older) —
+  // matches reports[] being sorted newest-first. Always resets back to the
+  // card-list pane — landing on a new report while still mid-swipe on the
+  // previous one's (now-stale) PDF pane would be confusing.
+  async function goToReport(delta) {
+    const target = Math.min(Math.max(currentReportIndex + delta, 0), reports.length - 1);
+    currentReportIndex = target;
+    pdfPaneVisited = false;
+    swipeEl?.scrollTo({ left: 0, behavior: 'instant' });
+    await loadCurrentMarkers();
   }
 
-  // '‹' moves toward index-1 (newer report); '›' moves toward index+1 (older) —
-  // matches reports[] being sorted newest-first.
-  function goToPage(delta) {
-    const target = Math.min(Math.max(pageIndex + delta, 0), reports.length - 1);
-    pagerEl.scrollTo({ left: target * pagerEl.clientWidth, behavior: 'smooth' });
+  function onSwipeScroll(e) {
+    if (e.target.scrollLeft > e.target.clientWidth / 2) pdfPaneVisited = true;
   }
 
   function base64ToArrayBuffer(base64) {
@@ -210,7 +203,7 @@
           const parsed = await parseWithPasswordRetry(file);
           if (!parsed) continue; // user cancelled the password prompt — skip this file
 
-          const { date, dateAmbiguous, dateAlternate, extracted } = parsed;
+          const { date, dateAmbiguous, dateAlternate, extracted, unvaluedCanonicals } = parsed;
           let reportDate = date;
           // dateAmbiguous means the numeric day/month order genuinely could
           // go either way (e.g. "07/10/2025") — prompt with our best guess
@@ -236,7 +229,7 @@
           }
           seenDates.add(reportDate);
           const path = await saveReportFile(profileId, file.name, base64ToArrayBuffer(file.data));
-          lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted);
+          lastUploadedId = await db.addReport(profileId, reportDate, file.name, path, extracted, unvaluedCanonicals);
           await logAnalyticsEvent('report_imported');
         } catch (err) {
           // One bad file (corrupt, unsupported, etc.) shouldn't abort the
@@ -252,13 +245,15 @@
       // Jump to the report just uploaded specifically — it may not be index 0
       // if its date is older than an already-existing report.
       const idx = lastUploadedId != null ? reports.findIndex(r => r.id === lastUploadedId) : -1;
-      pageIndex = idx >= 0 ? idx : 0;
+      currentReportIndex = idx >= 0 ? idx : 0;
+      pdfPaneVisited = false;
+      await loadCurrentMarkers();
       await tick();
-      pagerEl?.scrollTo({ left: pageIndex * pagerEl.clientWidth, behavior: 'instant' });
+      swipeEl?.scrollTo({ left: 0, behavior: 'instant' });
 
       if (lastUploadedId != null) {
-        flashReportId = lastUploadedId;
-        setTimeout(() => { flashReportId = null; }, 1800);
+        flashPane = true;
+        setTimeout(() => { flashPane = false; }, 1800);
       }
       if (failed.length) showToast(failed.join('\n'), 'error');
     } catch (err) {
@@ -277,9 +272,14 @@
     }
   }
 
+  // Reveals the same in-app PDF pane the swipe gesture does, rather than
+  // handing off to the OS file viewer — so this menu item teaches the
+  // gesture instead of being a separate, inconsistent path.
   function viewCurrentPdf() {
     menuOpen = false;
-    if (currentReport) openReportFile(currentReport.file_path);
+    if (!currentReport) return;
+    pdfPaneVisited = true;
+    swipeEl?.scrollTo({ left: swipeEl.clientWidth, behavior: 'smooth' });
   }
 
   function openAddMarkerModal() {
@@ -292,74 +292,50 @@
 <div class="report-tab">
   {#if statusMsg}<div class="status">{statusMsg}</div>{/if}
 
-  {#if !reports.length}
+  {#if loading}
+    <Skeleton rows={6} />
+  {:else if !reports.length}
     <p class="empty">No reports yet. Tap + to upload a blood report PDF.</p>
   {:else}
-    <div class="table-wrap">
-      <div class="table-head">
-        <div class="col-marker">Marker</div>
-        <div class="col-range">Range</div>
-        <div class="col-value-nav">
-          <button class="nav-btn" disabled={pageIndex === 0} onclick={() => goToPage(-1)} aria-label="Newer report">
-            <Icon name="chevron-left" size={15} />
-          </button>
-          <div class="value-nav-title">
-            <strong>{currentReport.date}</strong>
-            <span class="relative">{relativeLabel(currentReport.date)}</span>
-          </div>
-          <button class="nav-btn" disabled={pageIndex === reports.length - 1} onclick={() => goToPage(1)} aria-label="Older report">
-            <Icon name="chevron-right" size={15} />
-          </button>
-        </div>
+    <div class="report-nav">
+      <button class="nav-btn" disabled={currentReportIndex === 0} onclick={() => goToReport(-1)} aria-label="Newer report">
+        <Icon name="chevron-left" size={15} />
+      </button>
+      <div class="nav-title">
+        <strong>{currentReport.date}</strong>
+        <span class="relative">{relativeLabel(currentReport.date)}</span>
       </div>
-
-      <div class="table-body">
-        <div class="static-cols">
-          {#each groupedRows as row}
-            {#if row.header}
-              <div class="group-row">{row.header}</div>
-            {:else}
-              <div class="data-row">
-                <span class="marker-cell">
-                  <span class="marker-name" use:truncationCheck>{row.canonical}</span>
-                  <button class="info-btn" onclick={() => showToast(row.canonical, 'info')} aria-label="Full marker name">
-                    <Icon name="info" size={13} />
-                  </button>
-                </span>
-                <span class="range-cell">{refRangeByCanonical[row.canonical] ?? ''}</span>
-              </div>
-            {/if}
-          {/each}
-        </div>
-
-        <div class="value-pager" bind:this={pagerEl} onscroll={onScroll}>
-          {#each reports as report (report.id)}
-            <div class="value-page" class:flash={flashReportId === report.id}>
-              {#each groupedRows as row}
-                {#if row.header}
-                  <div class="group-row">&nbsp;</div>
-                {:else}
-                  <div class="data-row">
-                    <input
-                      type="number" step="any"
-                      class:out-of-range={outOfRangeFor(row.canonical, valuesByCanonical[row.canonical]?.[report.id])}
-                      value={valuesByCanonical[row.canonical]?.[report.id] ?? ''}
-                      placeholder="—"
-                      onchange={(e) => saveValue(report.id, row.canonical, e.target.value)}
-                    />
-                  </div>
-                {/if}
-              {/each}
-            </div>
-          {/each}
-        </div>
-      </div>
+      <button class="nav-btn" disabled={currentReportIndex === reports.length - 1} onclick={() => goToReport(1)} aria-label="Older report">
+        <Icon name="chevron-right" size={15} />
+      </button>
     </div>
 
-    <div class="dots">
-      {#each reports as _, i}<span class:active={i === pageIndex}></span>{/each}
+    <div class="swipe-pane" bind:this={swipeEl} onscroll={onSwipeScroll}>
+      <div class="pane cards-pane" class:flash={flashPane}>
+        {#each groupedRows as row}
+          {#if row.header}
+            <div class="group-row">{row.header}</div>
+          {:else}
+            {@const m = markerByCanonical[row.canonical]}
+            <MarkerCard
+              canonical={row.canonical}
+              value={m?.value ?? null}
+              unit={m?.unit ?? ''}
+              reportId={currentReport.id}
+              {profileId}
+              majorityUnit={majorityUnits[row.canonical]}
+              onSaved={loadCurrentMarkers}
+            />
+          {/if}
+        {/each}
+      </div>
+      <div class="pane pdf-pane">
+        {#if pdfPaneVisited}
+          <PdfViewer filePath={currentReport.file_path} />
+        {/if}
+      </div>
     </div>
-    {#if reports.length > 1}<p class="swipe-hint">Swipe, or tap ‹ ›, to compare other reports</p>{/if}
+    <p class="swipe-hint">Swipe to view the original PDF</p>
   {/if}
 
   <Fab icon="plus" onclick={() => (menuOpen = true)} />
@@ -450,48 +426,24 @@
   .empty { padding: 40px 20px; text-align: center; color: var(--muted); }
   .status { padding: 8px 16px; font-size: 0.85rem; color: var(--muted); }
 
-  .table-wrap {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 0 16px 96px;
-  }
-
-  .table-head {
-    display: flex;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    padding: 14px 0 8px;
-    z-index: 2;
-    font-size: 0.78rem;
-    color: var(--muted);
-    font-weight: 600;
-  }
-  .col-marker { flex: 1; min-width: 0; }
-  .col-range { width: 62px; flex-shrink: 0; text-align: center; }
-  .col-value-nav {
-    width: 140px;
-    flex-shrink: 0;
+  .report-nav {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 10px;
+    padding: 14px 16px 8px;
   }
-  .value-nav-title { text-align: center; min-width: 0; }
-  .value-nav-title strong { display: block; font-size: 0.82rem; color: var(--text); white-space: nowrap; }
-  .relative { display: block; color: var(--muted); font-size: 0.72rem; }
+  .nav-title { text-align: center; min-width: 120px; }
+  .nav-title strong { display: block; font-size: 0.92rem; color: var(--text); }
+  .relative { display: block; color: var(--muted); font-size: 0.75rem; }
   .nav-btn {
     background: var(--surface);
     border: none;
     box-shadow: var(--shadow-sm);
     color: var(--accent-dim);
     border-radius: 50%;
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -499,59 +451,38 @@
   }
   .nav-btn:disabled { color: var(--muted); opacity: 0.4; }
 
-  .table-body { display: flex; }
-  .static-cols { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .value-pager {
-    width: 140px;
-    flex-shrink: 0;
+  .swipe-pane {
+    flex: 1;
+    min-height: 0;
     display: flex;
     overflow-x: auto;
+    overflow-y: hidden;
     scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
   }
-  .value-page { min-width: 100%; scroll-snap-align: start; display: flex; flex-direction: column; }
-  .value-page.flash { animation: value-flash 1.8s ease-out; }
+  .pane { min-width: 100%; flex-shrink: 0; scroll-snap-align: start; }
+  .cards-pane {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 16px 96px;
+  }
+  .cards-pane.flash { animation: value-flash 1.8s ease-out; }
   @keyframes value-flash {
     0% { background: var(--accent-soft-strong); }
     100% { background: transparent; }
   }
+  .pdf-pane { height: 100%; }
 
-  .data-row {
-    display: flex;
-    align-items: center;
-    height: 46px;
-    border-bottom: 1px solid var(--border);
-  }
-  .static-cols .data-row { gap: 4px; }
-  .value-page .data-row { justify-content: center; padding: 0 6px; box-sizing: border-box; }
+  .swipe-hint { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 4px 0; }
+
   .group-row {
-    height: 32px;
-    display: flex;
-    align-items: flex-end;
     color: var(--accent-dim);
     font-weight: 700;
     font-size: 0.76rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding-bottom: 4px;
+    padding: 10px 4px 4px;
   }
-
-  .marker-cell { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; }
-  .marker-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font-size: 0.86rem; }
-  .info-btn { flex-shrink: 0; background: none; border: none; color: var(--muted); padding: 2px; display: none; }
-  .marker-cell.truncated .info-btn { display: flex; }
-  .range-cell { width: 62px; flex-shrink: 0; font-size: 0.78rem; color: var(--muted-lt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-
-  input[type='number'] {
-    width: 100%; max-width: 90px; box-sizing: border-box;
-    background: var(--bg); border: 1px solid var(--border); color: var(--text);
-    border-radius: 8px; padding: 6px 6px; text-align: center;
-  }
-  input[type='number'].out-of-range { color: var(--accent-dim); border-color: var(--accent-dim); }
-
-  .dots { display: flex; justify-content: center; gap: 6px; padding: 4px 0; }
-  .dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
-  .dots span.active { background: var(--accent); }
-  .swipe-hint { text-align: center; color: var(--muted); font-size: 0.78rem; margin: 0; }
 
   .menu-item {
     display: flex;

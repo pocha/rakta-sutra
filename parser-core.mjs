@@ -126,6 +126,14 @@ function unitScale(units) {
 // below needs to tell the two apart, since a candidate that explicitly
 // recognizes the printed unit is a categorically stronger match than one
 // merely assuming the value is already in its own default unit.
+// The raw list of known units for a marker (each { unit, scale, default })
+// — e.g. for a unit <select>'s options. Markers with only one implicit
+// unit (no config.units entry at all) return an empty array; callers
+// should treat that as "no picker needed", not "no unit exists".
+export function unitsFor(canonical) {
+  return MARKER_UNITS[canonical] ?? [];
+}
+
 export function markerUnitScale(canonical, unitsText) {
   if (!unitsText || !canonical) return null;
   const list = MARKER_UNITS[canonical];

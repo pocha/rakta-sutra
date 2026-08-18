@@ -9,9 +9,11 @@
   import { logAnalyticsEvent } from '../lib/analytics.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
+  import Skeleton from './Skeleton.svelte';
 
   let { profileId } = $props();
 
+  let loading = $state(true);
   let feed = $state([]);
   let expandedReportId = $state(null);
   let query = $state('');
@@ -26,8 +28,13 @@
   onMount(load);
 
   async function load() {
-    feed = await db.getTimelineFeed(profileId);
-    knownMarkers = await db.listKnownMarkers(profileId);
+    loading = true;
+    try {
+      feed = await db.getTimelineFeed(profileId);
+      knownMarkers = await db.listKnownMarkers(profileId);
+    } finally {
+      loading = false;
+    }
   }
 
   const suggestions = $derived(
@@ -136,7 +143,9 @@
   </div>
 
   <div class="feed">
-    {#if activeMarker}
+    {#if loading}
+      <Skeleton rows={5} />
+    {:else if activeMarker}
       <h3 class="marker-heading">{activeMarker}</h3>
       {#if !markerTimeline.length}
         <p class="empty">No test results or notes for this marker yet.</p>
