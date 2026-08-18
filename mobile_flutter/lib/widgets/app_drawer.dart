@@ -1,7 +1,7 @@
-// Port of mobile/src/components/Drawer.svelte. Backup screen is wired up in
-// Phase 4 (screens/backup_screen.dart).
+// Port of mobile/src/components/Drawer.svelte.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../screens/backup_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../state/app_state.dart';
 
@@ -67,7 +67,14 @@ class _AppDrawerState extends State<AppDrawer> {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
               },
             ),
-            ListTile(leading: const Icon(Icons.archive_outlined), title: const Text('Backup'), onTap: () => Navigator.pop(context)),
+            ListTile(
+              leading: const Icon(Icons.archive_outlined),
+              title: const Text('Backup'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen()));
+              },
+            ),
           ],
         ),
       ),

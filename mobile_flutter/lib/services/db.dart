@@ -14,9 +14,14 @@ class Db {
 
   static const _markersSchemaVersion = 2;
 
-  late final Database _db;
+  late Database _db;
   bool _migrated = false;
   bool get migrated => _migrated;
+
+  // Exposed for backup.dart's restore flow, which needs the connection
+  // closed before the underlying file can be replaced wholesale, then
+  // reopened by calling init() again.
+  Future<void> close() => _db.close();
 
   Future<void> init() async {
     final path = join(await getDatabasesPath(), 'trackblood.db');
@@ -369,6 +374,10 @@ class Db {
 
   Future<List<Map<String, Object?>>> listReminders(int profileId) =>
       _db.query('reminders', where: 'profile_id = ?', whereArgs: [profileId], orderBy: 'remind_at');
+
+  // Every reminder across every profile — backup.dart's restore flow cancels/
+  // reschedules server-side pushes for all of them, not just the active profile.
+  Future<List<Map<String, Object?>>> listAllReminders() => _db.query('reminders');
 
   Future<Map<String, Object?>?> getReminderById(int id) async {
     final rows = await _db.query('reminders', where: 'id = ?', whereArgs: [id]);

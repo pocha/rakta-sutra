@@ -5,6 +5,7 @@ import '../services/db.dart';
 import '../services/notifications.dart';
 import '../services/parser_bridge.dart';
 import '../theme.dart';
+import '../utils/date_format.dart';
 
 class ReminderTab extends StatefulWidget {
   final int? profileId;
@@ -59,16 +60,31 @@ class _ReminderTabState extends State<ReminderTab> {
 
   String _formatWhen(Map<String, Object?> r) {
     final d = DateTime.parse(r['remind_at'] as String).toLocal();
-    final base = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
-        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    final base = formatDateTime(d);
     final recurrence = r['recurrence'] as String?;
     if (recurrence == null) return base;
     final label = recurrence.startsWith('weekly:') ? 'every ${recurrence.substring(7)}' : recurrence;
-    return '$base ($label)';
+    return '$base  ·  $label';
+  }
+
+  // FAB is always visible/tappable — permission is checked (and, if needed,
+  // prompted) on tap rather than hiding the FAB whenever it's off, so the
+  // user always has a way to retry after granting it in system settings.
+  Future<void> _requestPermissionThenOpenSheet({Map<String, Object?>? reminder}) async {
+    final granted = await ensureNotificationPermission();
+    await _load(); // refresh the banner regardless of outcome
+    if (!granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Notifications need to be enabled to schedule reminders — tap + to try again.')),
+        );
+      }
+      return;
+    }
+    if (mounted) await _openReminderSheet(reminder: reminder);
   }
 
   Future<void> _openReminderSheet({Map<String, Object?>? reminder}) async {
-    if (_permissionBlocked) return;
     final ctrl = TextEditingController(text: reminder?['text'] as String? ?? '');
     String? clarifyQuestion;
     final clarifyCtrl = TextEditingController();
@@ -182,7 +198,7 @@ class _ReminderTabState extends State<ReminderTab> {
                 ]),
               ),
             ]),
-      floatingActionButton: _permissionBlocked ? null : FloatingActionButton(onPressed: () => _openReminderSheet(), child: const Icon(Icons.alarm_add)),
+      floatingActionButton: FloatingActionButton(onPressed: () => _requestPermissionThenOpenSheet(), child: const Icon(Icons.alarm_add)),
     );
   }
 
@@ -194,11 +210,19 @@ class _ReminderTabState extends State<ReminderTab> {
       opacity: past ? 0.65 : 1,
       child: Card(
         child: ListTile(
-          title: Text(r['text'] as String),
-          subtitle: Text(_formatWhen(r)),
+          contentPadding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+          leading: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(past ? Icons.check_circle_outline : Icons.alarm, size: 20, color: past ? kMuted : kAccent),
+          ),
+          title: Text(r['text'] as String, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500)),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(_formatWhen(r), style: const TextStyle(fontSize: 12, color: kMutedLt)),
+          ),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (!past) IconButton(icon: const Icon(Icons.edit_outlined, size: 20), onPressed: () => _openReminderSheet(reminder: r)),
-            IconButton(icon: const Icon(Icons.delete_outline, size: 20, color: kAccentDim), onPressed: () => _remove(r)),
+            if (!past) IconButton(icon: const Icon(Icons.edit_outlined, size: 20), visualDensity: VisualDensity.compact, onPressed: () => _requestPermissionThenOpenSheet(reminder: r)),
+            IconButton(icon: const Icon(Icons.delete_outline, size: 20, color: kAccentDim), visualDensity: VisualDensity.compact, onPressed: () => _remove(r)),
           ]),
         ),
       ),

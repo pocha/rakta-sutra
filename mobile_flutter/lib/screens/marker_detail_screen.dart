@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/db.dart';
 import '../services/parser_config.dart';
 import '../theme.dart';
+import '../utils/date_format.dart';
 import '../widgets/marker_chart.dart';
 
 class MarkerDetailScreen extends StatelessWidget {
@@ -40,7 +41,7 @@ class MarkerDetailScreen extends StatelessWidget {
                     Text(unit, style: const TextStyle(fontSize: 16, color: kMuted)),
                   ]),
                   const SizedBox(height: 4),
-                  Text('as of ${latest['date']}', style: const TextStyle(color: kMuted, fontSize: 13)),
+                  Text('as of ${formatDateIso(latest['date'] as String)}', style: const TextStyle(color: kMuted, fontSize: 13)),
                   if (refRange != null) ...[
                     const Divider(height: 24),
                     Row(children: [

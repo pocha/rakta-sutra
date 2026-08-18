@@ -16,6 +16,7 @@ import '../services/report_files.dart';
 import '../theme.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import '../utils/date_format.dart';
 import '../widgets/value_cell.dart';
 import 'marker_detail_screen.dart';
 
@@ -33,6 +34,14 @@ class _ReportTabState extends State<ReportTab> {
   Map<String, Map<int, Map<String, Object?>>> _valuesByCanonical = {};
   int _reportIndex = 0;
   int _subTab = 0; // 0 = Extracted, 1 = Raw
+  // flutter_pdfview's PDFView is a native platform view — IndexedStack
+  // mounts every child immediately, so without this it was created (and
+  // kept alive, hidden) the moment the Report tab first loaded, before Raw
+  // was ever visited. A hidden-but-mounted PlatformView is a known-bad
+  // pattern that can corrupt the whole FlutterView's compositing; lazy-
+  // mounting on first visit (same as the Svelte build's pdfPaneVisited)
+  // avoids ever creating it until it's actually needed.
+  bool _rawPaneVisited = false;
   String? _status;
 
   @override
@@ -78,14 +87,6 @@ class _ReportTabState extends State<ReportTab> {
       for (final k in ungrouped) rows.add((null, k));
     }
     return rows;
-  }
-
-  String _relativeLabel(String dateStr) {
-    final days = DateTime.now().difference(DateTime.parse(dateStr)).inDays;
-    if (days <= 0) return 'Today';
-    if (days < 30) return '$days day${days > 1 ? 's' : ''} ago';
-    if (days < 365) return '${(days / 30).round()} month${(days / 30).round() > 1 ? 's' : ''} ago';
-    return '${(days / 365).round()} year${(days / 365).round() > 1 ? 's' : ''} ago';
   }
 
   void _goToPage(int delta) {
@@ -226,25 +227,30 @@ class _ReportTabState extends State<ReportTab> {
   @override
   Widget build(BuildContext context) {
     _consumeJump(context.watch<AppState>());
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_reports.isEmpty) {
-      return Stack(children: [
-        const Center(child: Text('No reports yet. Tap + to upload a blood report PDF.')),
-        _fab(),
-      ]);
+      return Scaffold(
+        body: const Center(child: Text('No reports yet. Tap + to upload a blood report PDF.')),
+        floatingActionButton: _fabButton(),
+      );
     }
 
     final report = _currentReport!;
-    return Stack(children: [
-      Column(children: [
+    // A proper Scaffold, not a bare Stack — TimelineTab/ReminderTab (which
+    // scroll fine) both use one; this was the one structural difference
+    // between them and this tab, and matches what actually fixed the
+    // scroll-freeze bug (see the git history for the full investigation).
+    return Scaffold(
+      floatingActionButton: _fabButton(),
+      body: Column(children: [
         if (_status != null) Padding(padding: const EdgeInsets.all(8), child: Text(_status!)),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             IconButton(icon: const Icon(Icons.chevron_left), onPressed: _reportIndex == 0 ? null : () => _goToPage(-1)),
             Column(children: [
-              Text(report['date'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(_relativeLabel(report['date'] as String), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(formatDateIso(report['date'] as String), style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(relativeLabel(DateTime.parse(report['date'] as String)), style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ]),
             IconButton(icon: const Icon(Icons.chevron_right), onPressed: _reportIndex == _reports.length - 1 ? null : () => _goToPage(1)),
           ]),
@@ -254,68 +260,76 @@ class _ReportTabState extends State<ReportTab> {
           child: SegmentedButton<int>(
             segments: const [ButtonSegment(value: 0, label: Text('Extracted')), ButtonSegment(value: 1, label: Text('Raw'))],
             selected: {_subTab},
-            onSelectionChanged: (s) => setState(() => _subTab = s.first),
+            onSelectionChanged: (s) => setState(() {
+              _subTab = s.first;
+              if (_subTab == 1) _rawPaneVisited = true;
+            }),
           ),
         ),
         Expanded(
           child: IndexedStack(index: _subTab, children: [
             _extractedTable(report),
-            _RawPdfPane(filePath: report['file_path'] as String),
+            if (_rawPaneVisited) _RawPdfPane(filePath: report['file_path'] as String) else const SizedBox.shrink(),
           ]),
         ),
       ]),
-      _fab(),
-    ]);
+    );
   }
 
+  // ListView.builder, not a plain ListView(children: [...]) — the profile-
+  // wide marker union (every canonical ever seen across every report, not
+  // just this one) can run into the hundreds, and building that many
+  // ValueCells (each owning a TextEditingController) eagerly blocked the
+  // main thread badly enough to freeze the frame pipeline on scroll.
   Widget _extractedTable(Map<String, Object?> report) {
     final reportId = report['id'] as int;
-    return ListView(padding: const EdgeInsets.only(bottom: 96), children: [
-      for (final row in _groupedRows)
-        if (row.$1 != null)
-          Container(
+    final rows = _groupedRows;
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 96),
+      itemCount: rows.length,
+      itemBuilder: (context, i) {
+        final row = rows[i];
+        if (row.$1 != null) {
+          return Container(
             width: double.infinity,
             color: kBg,
             padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
             child: Text(row.$1!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5, color: kMuted)),
-          )
-        else
-          Column(children: [
-            _MarkerRow(
-              canonical: row.$2!,
-              cell: _valuesByCanonical[row.$2]?[reportId],
-              reportId: reportId,
-              profileId: widget.profileId!,
-              onSaved: _refresh,
-            ),
-            const Divider(height: 1, indent: 16),
-          ]),
-    ]);
+          );
+        }
+        return Column(children: [
+          _MarkerRow(
+            canonical: row.$2!,
+            cell: _valuesByCanonical[row.$2]?[reportId],
+            reportId: reportId,
+            profileId: widget.profileId!,
+            onSaved: _refresh,
+          ),
+          const Divider(height: 1, indent: 16),
+        ]);
+      },
+    );
   }
 
-  Widget _fab() {
-    return Positioned(
-      right: 16,
-      bottom: 16,
-      child: FloatingActionButton(
-        onPressed: () => showModalBottomSheet(
-          context: context,
-          builder: (context) => SafeArea(
-            child: Wrap(children: [
-              ListTile(leading: const Icon(Icons.upload_file), title: const Text('Upload report'), onTap: () { Navigator.pop(context); _pickAndUpload(); }),
-              ListTile(leading: const Icon(Icons.visibility), title: const Text('View raw PDF'), onTap: () { Navigator.pop(context); setState(() => _subTab = 1); }),
-            ]),
-          ),
+  Widget _fabButton() {
+    return FloatingActionButton(
+      onPressed: () => showModalBottomSheet(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Wrap(children: [
+            ListTile(leading: const Icon(Icons.upload_file), title: const Text('Upload report'), onTap: () { Navigator.pop(context); _pickAndUpload(); }),
+            ListTile(leading: const Icon(Icons.visibility), title: const Text('View raw PDF'), onTap: () { Navigator.pop(context); setState(() { _subTab = 1; _rawPaneVisited = true; }); }),
+          ]),
         ),
-        child: const Icon(Icons.add),
       ),
+      child: const Icon(Icons.add),
     );
   }
 
   String _bytesToBase64(List<int> bytes) => base64Encode(bytes);
 }
 
-class _MarkerRow extends StatelessWidget {
+class _MarkerRow extends StatefulWidget {
   final String canonical;
   final Map<String, Object?>? cell;
   final int reportId;
@@ -324,14 +338,56 @@ class _MarkerRow extends StatelessWidget {
   const _MarkerRow({required this.canonical, required this.cell, required this.reportId, required this.profileId, required this.onSaved});
 
   @override
+  State<_MarkerRow> createState() => _MarkerRowState();
+}
+
+class _MarkerRowState extends State<_MarkerRow> {
+  final _valueKey = GlobalKey<ValueCellState>();
+  late String _unit = widget.cell?['unit'] as String? ?? '';
+
+  @override
+  void didUpdateWidget(covariant _MarkerRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reportId != widget.reportId) _unit = widget.cell?['unit'] as String? ?? '';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final options = ParserConfig.instance.unitsFor(widget.canonical);
+    final multiUnit = options.length > 1;
     // A classic ListTile — built-in tap ripple + a trailing chevron — reads
     // as clickable far more clearly than a plain Row with an icon tacked on.
+    // Unit lives as a subtitle under the marker name (not next to the value)
+    // so the value column stays purely numeric and tight.
     return ListTile(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MarkerDetailScreen(profileId: profileId, canonical: canonical))),
-      title: Text(canonical, overflow: TextOverflow.ellipsis),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MarkerDetailScreen(profileId: widget.profileId, canonical: widget.canonical))),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      minVerticalPadding: 12,
+      title: Text(widget.canonical, overflow: TextOverflow.ellipsis),
+      subtitle: _unit.isEmpty && !multiUnit
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: multiUnit
+                  ? InkWell(
+                      onTap: () => _valueKey.currentState?.pickUnit(),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(_unit.isEmpty ? options.first.unit : _unit, style: const TextStyle(fontSize: 12, color: kMutedLt)),
+                        const Icon(Icons.arrow_drop_down, size: 16, color: kMutedLt),
+                      ]),
+                    )
+                  : Text(_unit, style: const TextStyle(fontSize: 12, color: kMutedLt)),
+            ),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        ValueCell(canonical: canonical, reportId: reportId, value: cell?['value'] as double?, unit: cell?['unit'] as String?, onSaved: onSaved),
+        ValueCell(
+          key: _valueKey,
+          canonical: widget.canonical,
+          reportId: widget.reportId,
+          value: widget.cell?['value'] as double?,
+          unit: widget.cell?['unit'] as String?,
+          onSaved: widget.onSaved,
+          onUnitChanged: (u) => setState(() => _unit = u),
+        ),
         const SizedBox(width: 4),
         const Icon(Icons.chevron_right, size: 18, color: kMuted),
       ]),
