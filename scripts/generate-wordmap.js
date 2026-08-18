@@ -50,7 +50,7 @@
 //       "TIN inside CREATININE" shape of risk test-parser-config.js flags
 //       after the fact; caught here before it's ever emitted.
 
-const config = require('./parser-config.json');
+const config = require('../parser-config.json');
 
 function compact(s) {
   return s.replace(/\x00/g, '').toUpperCase().replace(/AE/g, 'E').replace(/[^A-Z0-9]/g, '');
@@ -160,6 +160,6 @@ const collator = new Intl.Collator('en', { sensitivity: 'base' });
 const sortedEntries = Object.entries(wordMap).sort(([a], [b]) => collator.compare(a, b));
 
 require('fs').writeFileSync(
-  './parser-config-wordmap.json',
+  '../parser-config-wordmap.json',
   '{\n' + sortedEntries.map(([k, v]) => `    ${JSON.stringify(k)}: ${JSON.stringify(v)}`).join(',\n') + '\n}\n'
 );

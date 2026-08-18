@@ -89,7 +89,7 @@ The keyword list behind this is split into two files, loaded together via
   a marker in `parser-config.json`'s `valueLimits`:
 
   ```bash
-  node generate-wordmap.js
+  node scripts/generate-wordmap.js
   ```
 
   This derives keywords purely from each marker's own words (cumulative
