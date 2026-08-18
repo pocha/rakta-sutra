@@ -249,7 +249,7 @@ export async function addReport(profileId, reportDate, fileName, filePath, extra
 
 export async function listReports(profileId) {
   return (await db.query(
-    'SELECT * FROM reports WHERE profile_id = ? ORDER BY report_date DESC',
+    'SELECT *, report_date as date FROM reports WHERE profile_id = ? ORDER BY report_date DESC',
     [profileId]
   )).values;
 }
@@ -511,6 +511,10 @@ export async function getConsolidatedMatrix(profileId) {
 // for this profile (static), with each report's value keyed by report id so
 // the UI can swap which report's values are shown without re-querying —
 // only the "value" column swipes between reports, marker/range stay put.
+// Feeds the Report tab's swipeable value+unit column: one {value, unit} per
+// (canonical, report), since a report's unit is no longer a single
+// profile-wide constant — each report keeps whatever unit it was
+// parsed/entered in.
 export async function getConsolidatedReportData(profileId) {
   const reports = (await db.query(
     `SELECT id, report_date as date, file_name, file_path FROM reports WHERE profile_id = ? ORDER BY report_date DESC`,
@@ -524,26 +528,12 @@ export async function getConsolidatedReportData(profileId) {
     [profileId]
   )).values;
 
-  const reportDateById = Object.fromEntries(reports.map(r => [r.id, r.date]));
   const valuesByCanonical = {};
-  const unitWithDate = {};
   for (const row of markerRows) {
-    (valuesByCanonical[row.canonical] ??= {})[row.report_id] = row.value;
-    const rowDate = reportDateById[row.report_id];
-    const existing = unitWithDate[row.canonical];
-    if (row.unit && (!existing || rowDate > existing.date)) {
-      unitWithDate[row.canonical] = { unit: row.unit, date: rowDate };
-    }
+    (valuesByCanonical[row.canonical] ??= {})[row.report_id] = { value: row.value, unit: row.unit };
   }
-  // One ref range per canonical, in whichever unit the most recent report
-  // used — a stopgap for the current spreadsheet-style Report tab, which
-  // (unlike the upcoming per-card view) shows a single static range column
-  // rather than one range per displayed unit.
-  const refRangeByCanonical = Object.fromEntries(
-    Object.entries(unitWithDate).map(([k, v]) => [k, refRangeForUnit(k, v.unit)])
-  );
 
-  return { reports, valuesByCanonical, refRangeByCanonical };
+  return { reports, valuesByCanonical };
 }
 
 export async function listKnownMarkers(profileId) {
@@ -600,6 +590,19 @@ export async function getMarkerChartSeries(profileId, canonical) {
      ORDER BY r.report_date DESC`,
     [profileId, canonical]
   )).values;
+}
+
+// The most recent recorded value for one marker — the "latest value" shown
+// at the top of the marker detail screen.
+export async function getLatestMarkerValue(profileId, canonical) {
+  const rows = (await db.query(
+    `SELECT m.value, m.unit, r.id as report_id, r.report_date as date
+     FROM markers m JOIN reports r ON r.id = m.report_id
+     WHERE r.profile_id = ? AND m.canonical = ? AND m.value IS NOT NULL
+     ORDER BY r.report_date DESC LIMIT 1`,
+    [profileId, canonical]
+  )).values;
+  return rows[0] ?? null;
 }
 
 // ── Reminders ────────────────────────────────────────────────────────────────

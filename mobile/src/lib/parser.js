@@ -19,6 +19,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 export {
   MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange,
   convertUnit, refRangeForUnit, inValueRangeForUnit, valueLimitsForUnit, unitsFor,
+  pdfjsLib,
 };
 
 export async function parsePDF(arrayBuffer, password) {

@@ -921,11 +921,18 @@ function tryExtractLine(line, i, allLines, colMap, extracted, unvalued) {
   // matchedUnitLabel() only cleans units for markers with a configured
   // alternate-units list; a marker with just one implicit default unit has
   // no such list to match against, so the raw scanned text (which can still
-  // carry a reference range glued onto the same PDF item, e.g.
-  // "ug/L(4.0 - 15.2)") falls through unchanged. Strip anything from the
-  // first non-unit character onward as a general fallback — units never
-  // legitimately contain "(", "<", ">", or a digit-space-digit range.
+  // carry glued-on junk from the same PDF item — a reference range in
+  // parens "ug/L(4.0 - 15.2)", a risk-category label "Low Risk: 3.3-4.4",
+  // a bare digit-dash-digit range "0.3-5.5", or a leading "*value*" that a
+  // preceding column bled into "*0.16 *X 10³ / μL") falls through
+  // unchanged. Strip each of those as a general fallback — units never
+  // legitimately contain "(", "<", ">", ":", or a numeric range.
   const rawUnit = matchedUnitLabel(canonical, units) || units || MARKER_UNITS[canonical]?.find(u => u.default)?.unit || '';
-  const unit = rawUnit.replace(/[(<>].*$/, '').trim();
+  const cleanedUnit = rawUnit
+    .replace(/^\*[\d.]+\s*\*?\s*/, '')
+    .replace(/[(<>].*$/, '')
+    .replace(/:?\s*[\d.]+\s*-\s*[\d.]+.*$/, '')
+    .trim();
+  const unit = cleanedUnit || MARKER_UNITS[canonical]?.find(u => u.default)?.unit || '';
   extracted[canonical] = { value, unit, ref: ref ?? refRangeForUnit(canonical, unit) ?? '' };
 }

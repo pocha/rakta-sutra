@@ -1,8 +1,6 @@
 <script>
-  // Per-marker trend line — fetched lazily, only when a MarkerCard expands
-  // (not eagerly for every collapsed card, which would mean one chart-data
-  // query per marker per report load).
-  import { onMount, onDestroy } from 'svelte';
+  // Per-marker trend line, shown on the marker detail screen (MarkerDetail.svelte).
+  import { onMount, onDestroy, tick } from 'svelte';
   import { Chart, LineController, LineElement, PointElement, LinearScale, CategoryScale, Tooltip } from 'chart.js';
   import * as db from '../lib/db.js';
   import { convertUnit } from '../lib/parser.js';
@@ -54,6 +52,13 @@
         },
       },
     });
+    // Chart.js sizes itself off the canvas's parent at construction time;
+    // if that ran before the surrounding layout had settled (e.g. right
+    // after a screen transition), the canvas can be left at its 300x150
+    // default. A resize on the next frame, once layout is guaranteed
+    // settled, costs nothing when it was already sized correctly.
+    await tick();
+    chart?.resize();
   });
 
   onDestroy(() => chart?.destroy());
