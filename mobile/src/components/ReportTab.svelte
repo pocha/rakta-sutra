@@ -90,17 +90,23 @@
     return (bounds.low !== null && value < bounds.low) || (bounds.high !== null && value > bounds.high);
   }
 
+  // '' (not a real unit string) tells upsertMarker/refRangeForUnit "treat
+  // this as the marker's own canonical default unit" — the same implicit
+  // assumption manual entry always made, before there was any per-marker
+  // unit concept at all. This spreadsheet-style manual-entry flow has no
+  // unit picker of its own (that lands with the card-based Report tab
+  // redesign); it's a stopgap, not a place to add one.
   async function saveValue(reportId, canonical, newValue) {
     const v = parseFloat(newValue);
     if (isNaN(v)) return;
-    await db.upsertMarker(reportId, canonical, v, refRangeByCanonical[canonical] ?? REF_RANGES[canonical] ?? null);
+    await db.upsertMarker(reportId, canonical, v, '');
     await refresh();
   }
 
   async function addMarkerToCurrentReport() {
     const v = parseFloat(addValue);
     if (!addCanonical || isNaN(v) || !currentReport) return;
-    await db.upsertMarker(currentReport.id, addCanonical, v, REF_RANGES[addCanonical] ?? null);
+    await db.upsertMarker(currentReport.id, addCanonical, v, '');
     resetAddMarkerForm();
     addMarkerModalOpen = false;
     await refresh();

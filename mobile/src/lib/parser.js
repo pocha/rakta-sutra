@@ -7,13 +7,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
-import { parsePDF as extractFromPdf, MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange } from '../../../parser-core.mjs';
+import {
+  parsePDF as extractFromPdf, MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange,
+  convertUnit, refRangeForUnit, inValueRangeForUnit, valueLimitsForUnit,
+} from '../../../parser-core.mjs';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 // configureParser() is called once at app startup (see main.js →
 // parserConfigSync.js), before anything here is used.
-export { MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange };
+export { MARKER_GROUPS, REF_RANGES, KEYWORD_MAP, parseRefRange, convertUnit, refRangeForUnit, inValueRangeForUnit, valueLimitsForUnit };
 
 export async function parsePDF(arrayBuffer, password) {
   return extractFromPdf(arrayBuffer, pdfjsLib, password);

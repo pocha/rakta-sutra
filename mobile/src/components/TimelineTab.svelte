@@ -1,7 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import * as db from '../lib/db.js';
-  import { REF_RANGES, parseRefRange } from '../lib/parser.js';
+  import { REF_RANGES, parseRefRange, refRangeForUnit } from '../lib/parser.js';
   import { parseJournalText } from '../lib/textParse.js';
   import { jumpToReport } from '../lib/state.svelte.js';
   import { deleteReportFile, openReportFile } from '../lib/reports.js';
@@ -48,8 +48,13 @@
     markerTimeline = [];
   }
 
-  function outOfRange(entry) {
-    const bounds = parseRefRange(entry.ref_range);
+  // `canonical` isn't always on `entry` itself — getMarkerTimeline()'s rows
+  // are already scoped to one marker (the caller knows which), so the
+  // caller passes it explicitly there; getReportMarkers()' rows (a whole
+  // report's markers) carry their own `canonical` per row instead.
+  function outOfRange(entry, canonical) {
+    if (entry.value === null) return false;
+    const bounds = parseRefRange(refRangeForUnit(canonical, entry.unit ?? ''));
     if (!bounds) return false;
     return (bounds.low !== null && entry.value < bounds.low) ||
            (bounds.high !== null && entry.value > bounds.high);
@@ -63,7 +68,7 @@
     expandedReportId = report.id;
     if (!reportDetail[report.id]) {
       const markers = await db.getReportMarkers(report.id);
-      reportDetail = { ...reportDetail, [report.id]: markers.filter(outOfRange) };
+      reportDetail = { ...reportDetail, [report.id]: markers.filter(m => outOfRange(m, m.canonical)) };
     }
   }
 
@@ -140,8 +145,8 @@
         <div class="card">
           <span class="date">{entry.kind === 'note' ? formatEntryDateTime(entry.date) : entry.date}</span>
           {#if entry.kind === 'value'}
-            <span class:out-of-range={outOfRange(entry)}>
-              Test value: <strong>{entry.value}</strong> {entry.ref_range ? `(ref ${entry.ref_range})` : ''}
+            <span class:out-of-range={outOfRange(entry, activeMarker)}>
+              Test value: <strong>{entry.value} {entry.unit ?? ''}</strong> {refRangeForUnit(activeMarker, entry.unit ?? '') ? `(ref ${refRangeForUnit(activeMarker, entry.unit ?? '')})` : ''}
             </span>
           {:else}
             <span>{entry.text}</span>
@@ -174,7 +179,7 @@
                 {#if reportDetail[item.id]?.length}
                   <ul>
                     {#each reportDetail[item.id] as m}
-                      <li>{m.canonical}: <strong>{m.value}</strong> (ref {m.ref_range})</li>
+                      <li>{m.canonical}: <strong>{m.value} {m.unit ?? ''}</strong> (ref {refRangeForUnit(m.canonical, m.unit ?? '')})</li>
                     {/each}
                   </ul>
                 {:else}
