@@ -13,3 +13,4 @@ firebase-debug.log
 # artifact (bridge/build.sh), regenerated from bridge/src, not committed.
 bridge/dist/
 mobile_flutter/assets/bridge/
+mobile_flutter/android/app/google-services.json

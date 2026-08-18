@@ -3,8 +3,9 @@
          bundled JS over (see lib/services/parser_bridge.dart) and, later,
          the reminder-scheduling backend / parser-config sync. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="Track Blood (Next)"
+        android:label="Track Blood"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

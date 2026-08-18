@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -16,9 +17,12 @@ android {
     }
 
     defaultConfig {
-        // Deliberately distinct from the Capacitor app's fyi.pocha.trackblood
-        // so both can be installed side by side while this rewrite is validated.
-        applicationId = "fyi.pocha.trackblood.next"
+        // Same id as the Capacitor app (fyi.pocha.trackblood) — that app is
+        // being retired, and reusing it lets this build use the existing
+        // Firebase app registration (push/analytics) without a new one.
+        // Installing this build replaces the Capacitor app on a test device
+        // (different signing key — needs an uninstall first, not just -r).
+        applicationId = "fyi.pocha.trackblood"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

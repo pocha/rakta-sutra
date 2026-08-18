@@ -1,8 +1,8 @@
-// Port of mobile/src/components/Drawer.svelte. Notifications/Backup entries
-// are wired up in later phases (screens/notifications_screen.dart,
-// screens/backup_screen.dart) — this is profile switching only for now.
+// Port of mobile/src/components/Drawer.svelte. Backup screen is wired up in
+// Phase 4 (screens/backup_screen.dart).
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../screens/notifications_screen.dart';
 import '../state/app_state.dart';
 
 class AppDrawer extends StatefulWidget {
@@ -59,7 +59,14 @@ class _AppDrawerState extends State<AppDrawer> {
             else
               ListTile(leading: const Icon(Icons.add), title: const Text('Add Profile'), onTap: () => setState(() => _addingProfile = true)),
             const Divider(),
-            ListTile(leading: const Icon(Icons.notifications_outlined), title: const Text('Notifications'), onTap: () => Navigator.pop(context)),
+            ListTile(
+              leading: const Icon(Icons.notifications_outlined),
+              title: const Text('Notifications'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              },
+            ),
             ListTile(leading: const Icon(Icons.archive_outlined), title: const Text('Backup'), onTap: () => Navigator.pop(context)),
           ],
         ),

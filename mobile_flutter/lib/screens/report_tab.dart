@@ -13,6 +13,9 @@ import '../services/db.dart';
 import '../services/parser_bridge.dart';
 import '../services/parser_config.dart';
 import '../services/report_files.dart';
+import '../theme.dart';
+import 'package:provider/provider.dart';
+import '../state/app_state.dart';
 import '../widgets/value_cell.dart';
 import 'marker_detail_screen.dart';
 
@@ -206,8 +209,23 @@ class _ReportTabState extends State<ReportTab> {
     return result ?? false;
   }
 
+  // Timeline's "jump to this report" sets AppState.jumpToReportId — consumed
+  // here rather than there, since only ReportTab knows how its own report
+  // index maps to a report id. Deferred to a post-frame callback since it's
+  // triggered by a Provider rebuild mid-build, not safe to setState from directly.
+  void _consumeJump(AppState appState) {
+    final target = appState.jumpToReportId;
+    if (target == null) return;
+    final idx = _reports.indexWhere((r) => r['id'] == target);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appState.jumpToReportId = null;
+      if (idx >= 0) setState(() => _reportIndex = idx);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _consumeJump(context.watch<AppState>());
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_reports.isEmpty) {
       return Stack(children: [
@@ -255,18 +273,23 @@ class _ReportTabState extends State<ReportTab> {
     return ListView(padding: const EdgeInsets.only(bottom: 96), children: [
       for (final row in _groupedRows)
         if (row.$1 != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-            child: Text(row.$1!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5)),
+          Container(
+            width: double.infinity,
+            color: kBg,
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+            child: Text(row.$1!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5, color: kMuted)),
           )
         else
-          _MarkerRow(
-            canonical: row.$2!,
-            cell: _valuesByCanonical[row.$2]?[reportId],
-            reportId: reportId,
-            profileId: widget.profileId!,
-            onSaved: _refresh,
-          ),
+          Column(children: [
+            _MarkerRow(
+              canonical: row.$2!,
+              cell: _valuesByCanonical[row.$2]?[reportId],
+              reportId: reportId,
+              profileId: widget.profileId!,
+              onSaved: _refresh,
+            ),
+            const Divider(height: 1, indent: 16),
+          ]),
     ]);
   }
 
@@ -302,17 +325,16 @@ class _MarkerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    // A classic ListTile — built-in tap ripple + a trailing chevron — reads
+    // as clickable far more clearly than a plain Row with an icon tacked on.
+    return ListTile(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => MarkerDetailScreen(profileId: profileId, canonical: canonical))),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Row(children: [
-          Expanded(child: Text(canonical, overflow: TextOverflow.ellipsis)),
-          ValueCell(canonical: canonical, reportId: reportId, value: cell?['value'] as double?, unit: cell?['unit'] as String?, onSaved: onSaved),
-          const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
-        ]),
-      ),
+      title: Text(canonical, overflow: TextOverflow.ellipsis),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        ValueCell(canonical: canonical, reportId: reportId, value: cell?['value'] as double?, unit: cell?['unit'] as String?, onSaved: onSaved),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right, size: 18, color: kMuted),
+      ]),
     );
   }
 }
