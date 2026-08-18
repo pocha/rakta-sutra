@@ -20,7 +20,7 @@ const PDF_NAMES = [
   '2025-12-full-body.pdf', 'metropolis.pdf', 'thyrocare-arogyam-1.3.pdf', 'toxic-nutrient-thyrocare.pdf', 'urine-markers.pdf', 'vitamins.pdf',
   '2023_Nov03_Innoquest_Part2.pdf', '2023_Nov_Innoquest_20231103.pdf', '2024_Dec20_in_red.pdf', '2024_March_Triglycerides.pdf',
   '2025_August_MedPlus_Hyd.pdf', 'Bluttuning Stand 05.01.2021.pdf', 'Musterbefund-Gesund-und-Aktiv.pdf', 'Musterbefund-Mikronährstoffe.pdf',
-  'innoquest-password-protected.pdf', 'quest-diagnostics-US.pdf',
+  'innoquest-password-protected.pdf', 'quest-diagnostics-US.pdf', 'australia.pdf',
 ];
 
 // Password-protected sample reports — filename -> password. Not a secret
@@ -50,33 +50,7 @@ function writeFixture(pdfName, result) {
   fs.writeFileSync(fixturePath(pdfName), JSON.stringify(fixture, null, 2) + '\n');
 }
 
-const valuesMatch = (a, b) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < 1e-6;
-
-// Compares a parsed result against its fixture, returning per-report
-// metrics plus the specific markers that were missed or wrong, so the
-// report can call them out by name instead of just a percentage.
-function compareToFixture(fixture, extracted) {
-  const fixtureNames = Object.keys(fixture.markers);
-  const extractedNames = Object.keys(extracted);
-  const missed = [];   // in fixture, not extracted at all
-  const wrong = [];    // in both, value differs
-  const correct = [];  // in both, value matches
-  for (const name of fixtureNames) {
-    const expected = fixture.markers[name];
-    if (!(name in extracted)) { missed.push({ name, expected }); continue; }
-    const actual = extracted[name].value;
-    if (valuesMatch(expected, actual)) correct.push(name);
-    else wrong.push({ name, expected, actual });
-  }
-  const spurious = extractedNames.filter(n => !(n in fixture.markers));
-
-  const totalFixture = fixtureNames.length;
-  const matched = correct.length + wrong.length;
-  const coveragePct = totalFixture ? (correct.length / totalFixture) * 100 : 100;
-  const errorPct = matched ? (wrong.length / matched) * 100 : 0;
-
-  return { totalFixture, correct, missed, wrong, spurious, coveragePct, errorPct };
-}
+const { compareToFixture } = require('./scripts/scoring.js');
 
 async function main() {
   const writeFixtures = process.argv.includes('--write-fixtures');
@@ -167,7 +141,8 @@ async function main() {
       continue;
     }
     filesWithFixtures++;
-    const cmp = compareToFixture(fixture, r.extracted);
+    const extractedValues = Object.fromEntries(Object.entries(r.extracted).map(([k, v]) => [k, v.value]));
+    const cmp = compareToFixture(fixture, extractedValues);
     totalFixtureMarkers += cmp.totalFixture;
     totalCorrect += cmp.correct.length;
     totalWrong += cmp.wrong.length;
@@ -176,7 +151,7 @@ async function main() {
     lines.push(`${r.name}: coverage ${cmp.coveragePct.toFixed(1)}%  error ${cmp.errorPct.toFixed(1)}%  spurious ${cmp.spurious.length}`);
     for (const m of cmp.missed) lines.push(`  MISSED    ${m.name} (expected ${m.expected})`);
     for (const w of cmp.wrong) lines.push(`  WRONG     ${w.name} (expected ${w.expected}, got ${w.actual})`);
-    for (const s of cmp.spurious) lines.push(`  SPURIOUS  ${s} (got ${r.extracted[s].value})`);
+    for (const s of cmp.spurious) lines.push(`  SPURIOUS  ${s} (got ${extractedValues[s]})`);
     lines.push('');
   }
 

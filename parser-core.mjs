@@ -126,7 +126,7 @@ function unitScale(units) {
 // below needs to tell the two apart, since a candidate that explicitly
 // recognizes the printed unit is a categorically stronger match than one
 // merely assuming the value is already in its own default unit.
-function markerUnitScale(canonical, unitsText) {
+export function markerUnitScale(canonical, unitsText) {
   if (!unitsText || !canonical) return null;
   const list = MARKER_UNITS[canonical];
   if (!list) return null;
@@ -197,7 +197,7 @@ function extractDate(lines) {
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF text extraction — group items into lines by Y coordinate
 // ─────────────────────────────────────────────────────────────────────────────
-function groupIntoLines(items) {
+export function groupIntoLines(items) {
   const bucket = LAYOUT.lineBucket;
   const map = new Map();
   for (const item of items) {
