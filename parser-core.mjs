@@ -80,43 +80,19 @@ function assertConfigured() {
   if (!LAYOUT) throw new Error('parser-core.mjs: call configureParser(config) before use.');
 }
 
-function inValueRange(canonical, v) {
+export function inValueRange(canonical, v) {
   const lim = VALUE_LIMITS[canonical];
   if (!lim) return true;
   return v >= lim[0] && v <= lim[1];
 }
 
-function unitScale(units) {
-  if (!units) return 1;
-  const u = units.replace(/\s/g, '').toUpperCase();
-  // Exponent notation varies: a real superscript character ("10³"), a caret
-  // ("10^3"), or — for the ×10⁹ case specifically — a superscript digit
-  // rendered as its own separate PDF text item and reattached by the units
-  // accumulator above ("10" immediately followed by a bare "9").
-  const m = u.match(/10\^?([³369⁶⁹])/);
-  if (!m) return 1;
-  const exp = { '3':3, '³':3, '6':6, '⁶':6, '9':9, '⁹':9 }[m[1]];
-  // Our default cell-count unit is cells/µL. "×10ⁿ/L" — hematology's
-  // SI-preferred notation, and the form these superscript-exponent values
-  // above take once the digit above the line is correctly reattached — is
-  // the exact same magnitude as "×10ⁿ⁻⁶/µL" (1 L = 10⁶ µL), so the exponent
-  // alone isn't enough; the denominator has to be checked to know which
-  // scale is actually meant. Match bare "/L" specifically — the slash
-  // immediately followed by L, nothing in between — so any micro-prefixed
-  // form (/uL, /µL using the micro sign, /μL using Greek mu — labs are
-  // inconsistent about which character they use) still correctly falls
-  // through as "not per-liter" without needing to enumerate every spelling.
-  const perLiter = /\/L$/.test(u);
-  return Math.pow(10, perLiter ? exp - 6 : exp);
-}
-
-// Per-marker unit conversion — distinct from unitScale() above, which only
-// handles the generic "10^3"/"10^6" cell-count multiplier notation shared
-// across cell-count markers. This instead converts a value printed in an
-// alternate unit (e.g. T3 as "ng/dL" when our default/tracked unit is
-// "ng/mL") into the marker's default unit, so VALUE_LIMITS plausibility
-// checks — and everything stored/displayed — are always in that one unit.
-// A marker with no config.units entry (the common case) is unaffected.
+// Per-marker unit conversion — converts a value printed in an alternate
+// unit (e.g. T3 as "ng/dL" when our default/tracked unit is "ng/mL", or a
+// cell count printed as a raw absolute "/mm³" when the marker's default is
+// compact "x10^3/uL" notation) into the marker's default unit, so
+// VALUE_LIMITS plausibility checks — and everything stored/displayed — are
+// always in that one unit. A marker with no config.units entry (the common
+// case) is unaffected.
 //
 // Returns null — not 1 — when the captured unit isn't one this marker's
 // own `units` table recognizes at all, deliberately distinct from "found
@@ -126,21 +102,114 @@ function unitScale(units) {
 // below needs to tell the two apart, since a candidate that explicitly
 // recognizes the printed unit is a categorically stronger match than one
 // merely assuming the value is already in its own default unit.
+// The raw list of known units for a marker (each { unit, scale, default })
+// — e.g. for a unit <select>'s options. Markers with only one implicit
+// unit (no config.units entry at all) return an empty array; callers
+// should treat that as "no picker needed", not "no unit exists".
+export function unitsFor(canonical) {
+  return MARKER_UNITS[canonical] ?? [];
+}
+
+// Normalizes cosmetic spelling variance before substring matching — real
+// superscript digits ("10³") vs caret notation ("10^3"), the micro sign
+// (µ, U+00B5) vs Greek mu (μ, U+03BC) which PDFs use inconsistently, and
+// incidental whitespace differences ("X 10³ / μL" vs "X10³/μL"). This does
+// NOT compute any scale/magnitude — it only makes the same printed unit
+// match regardless of which glyphs a given lab's PDF export happened to use.
+const SUPERSCRIPT_MAP = { '³': '3', '⁶': '6', '⁹': '9' };
+function normalizeUnitText(s) {
+  return s
+    .replace(/[³⁶⁹]/g, (c) => '^' + SUPERSCRIPT_MAP[c])
+    .replace(/µ/g, 'μ')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
 export function markerUnitScale(canonical, unitsText) {
   if (!unitsText || !canonical) return null;
   const list = MARKER_UNITS[canonical];
   if (!list) return null;
-  const u = unitsText.toLowerCase();
+  const u = normalizeUnitText(unitsText);
   for (const { unit, scale } of list) {
-    if (u.includes(unit.toLowerCase())) return scale;
+    if (u.includes(normalizeUnitText(unit))) return scale;
+  }
+  return null;
+}
+
+// The clean, canonical label for whichever of a marker's known units
+// appears in `unitsText` (matched the same way markerUnitScale() matches
+// it — substring, case-insensitive), as opposed to `unitsText` itself.
+// Needed because the raw scanned unit text sometimes carries trailing junk
+// glued onto it (e.g. a reference range immediately following the unit on
+// the same PDF text item, "nmol/L(8.64 - 29.00)") — harmless when the text
+// was only ever used for markerUnitScale()'s substring-inclusion check, but
+// wrong once `unit` is returned as a user-facing value (fixtures, the UI's
+// unit dropdown, storage) rather than being discarded after matching.
+export function matchedUnitLabel(canonical, unitsText) {
+  if (!unitsText || !canonical) return null;
+  const list = MARKER_UNITS[canonical];
+  if (!list) return null;
+  const u = normalizeUnitText(unitsText);
+  for (const { unit } of list) {
+    if (u.includes(normalizeUnitText(unit))) return unit;
   }
   return null;
 }
 
 function scaleRef(ref, scale) {
   if (!ref || scale === 1) return ref;
-  // Scale a "lo-hi" range string: "150-410" → "150000-410000"
-  return ref.replace(/(\d+\.?\d*)/g, n => String(parseFloat(n) * scale));
+  // Only scale the leading numeric range/comparison — REF_RANGES strings
+  // are "X-Y UNIT" or "< X UNIT" — a blanket replace across the whole
+  // string would also rewrite digits embedded in the trailing unit label
+  // itself (e.g. the "3" in "x10^3/uL"), corrupting it into garbage like
+  // "4000-10000 x10000^3000/uL".
+  const m = ref.match(/^([<>≤≥]?=?\s*\d+\.?\d*(?:\s*[-–]\s*\d+\.?\d*)?)/);
+  if (!m) return ref;
+  const prefix = m[1];
+  const scaledPrefix = prefix.replace(/(\d+\.?\d*)/g, n => String(parseFloat(n) * scale));
+  return scaledPrefix + ref.slice(prefix.length);
+}
+
+// Converts a value from one of a marker's known printed units to another,
+// via markerUnitScale()'s existing unit->default-unit scale (go via the
+// default: value * scale(from) / scale(to)). A unit unrecognized for this
+// marker defaults to scale 1 (safe no-op), same convention markerUnitScale's
+// other callers already use.
+export function convertUnit(canonical, value, fromUnit, toUnit) {
+  if (fromUnit === toUnit) return value;
+  const fromScale = markerUnitScale(canonical, fromUnit) ?? 1;
+  const toScale = markerUnitScale(canonical, toUnit) ?? 1;
+  return value * fromScale / toScale;
+}
+
+// Whether `value`, printed/entered in `unit`, is physiologically plausible
+// for `canonical` — converts into the canonical default unit first since
+// VALUE_LIMITS is defined in that unit, then defers to inValueRange().
+export function inValueRangeForUnit(canonical, value, unit) {
+  const scale = markerUnitScale(canonical, unit) ?? 1;
+  return inValueRange(canonical, value * scale);
+}
+
+// The marker's plausibility limits, expressed in `unit` instead of its
+// canonical default unit — e.g. for a "value must be between X and Y"
+// message when a unit-switched value fails inValueRangeForUnit() above.
+export function valueLimitsForUnit(canonical, unit) {
+  const lim = VALUE_LIMITS[canonical];
+  if (!lim) return null;
+  const scale = markerUnitScale(canonical, unit) ?? 1;
+  return [lim[0] / scale, lim[1] / scale];
+}
+
+// The marker's reference range, in `unit` instead of its canonical default
+// unit — computed by inverse-scaling REF_RANGES[canonical] rather than
+// hand-authoring a range per unit in config (scaleRef() already exists for
+// the forward direction; this just runs it with the reciprocal factor).
+export function refRangeForUnit(canonical, unit) {
+  const ref = REF_RANGES[canonical];
+  if (!ref) return ref;
+  const scale = markerUnitScale(canonical, unit) ?? 1;
+  if (scale === 1) return ref;
+  return scaleRef(ref, 1 / scale);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -534,7 +603,7 @@ function reconstructRefRange(items) {
 // "/" so ordinary words (marker names, "Total", row labels) never qualify;
 // only used as a fallback when there's no colMap.units to position-filter
 // against, so it's restricted to items appearing after the value itself.
-const UNIT_TOKEN_RE = /^[a-zA-Zμµ][a-zA-Zμµ%0-9]*\/[a-zA-Zμµ][a-zA-Zμµ0-9]*$/;
+const UNIT_TOKEN_RE = /^[a-zA-Zμµ][a-zA-Zμµ%0-9]*\/[a-zA-Zμµ][a-zA-Zμµ0-9.]*$/;
 
 function scanRowForValueRefUnits(items, colMap) {
   const hasValueCol = !!colMap && colMap.value !== undefined;
@@ -639,9 +708,15 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
     const next = allLines[j];
     if (next.pageBreak) break;
     let { value, ref, units } = scanRowForValueRefUnits(next.items, colMap);
-    const laScale = unitScale(units) * (markerUnitScale(canonical, units) ?? 1);
-    if (value !== null) value = value * laScale;
-    if (value !== null && inValueRange(canonical, value)) return { value, ref: scaleRef(ref, laScale) };
+    // `value`/`ref` stay in the marker's NATIVE (as-printed) unit —
+    // `canonicalValue`, converted into the marker's fixed default unit via
+    // the per-marker units table, exists only for the plausibility check
+    // here, same native/canonical split as tryExtractLine.
+    const mScale = markerUnitScale(canonical, units) ?? 1;
+    const canonicalValue = value !== null && mScale !== 1 ? value * mScale : value;
+    if (canonicalValue !== null && inValueRange(canonical, canonicalValue)) {
+      return { value, ref, units };
+    }
     // Stop if next line matches an unextracted marker
     const nm = matchLine(nameItemsOf(next.items, colMap).map(it => it.text).join(' '));
     if (nm) {
@@ -649,7 +724,7 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
       if (nc && !extracted[nc]) break;
     }
   }
-  return { value: null, ref: null };
+  return { value: null, ref: null, units: '' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -749,6 +824,12 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
   // guarantees real headed data always wins regardless of line order.
   const retryLines = [];
   let colMap = null;
+  // Canonicals whose name matched somewhere in the document but that never
+  // got a plausible value on ANY line — tracked separately from `extracted`
+  // (not written into it) so a later line that DOES find a real value for
+  // the same canonical still wins normally; only canonicals that end the
+  // whole parse still absent from `extracted` are truly "matched, no value".
+  const unvalued = new Set();
   for (let i = 0; i < allLines.length; i++) {
     const line = allLines[i];
     if (line.pageBreak) { colMap = null; continue; }
@@ -756,12 +837,12 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
     const newMap = detectColMap(line);
     if (newMap) colMap = newMap; // don't `continue` — the header line may also contain data (Thyrocare Hemoglobin)
     const before = Object.keys(extracted).length;
-    if (colMap) tryExtractLine(line, i, allLines, colMap, extracted);
+    if (colMap) tryExtractLine(line, i, allLines, colMap, extracted, unvalued);
     if (Object.keys(extracted).length === before) retryLines.push(i);
   }
   for (const i of retryLines) {
     const line = allLines[i];
-    tryExtractLine(line, i, allLines, undefined, extracted);
+    tryExtractLine(line, i, allLines, undefined, extracted, unvalued);
   }
 
   return {
@@ -769,12 +850,14 @@ export async function parsePDF(arrayBuffer, pdfjsLib, password) {
     dateAmbiguous: dateResult?.ambiguous ?? false,
     dateAlternate: dateResult?.alternate ?? null,
     extracted,
+    unvaluedCanonicals: [...unvalued].filter(c => !extracted[c]),
   };
 }
 
 // Attempts to extract one marker from a single line, mutating `extracted`
-// in place. `colMap` may be undefined (headerless mode).
-function tryExtractLine(line, i, allLines, colMap, extracted) {
+// (and `unvalued`, for matched-but-valueless canonicals) in place. `colMap`
+// may be undefined (headerless mode).
+function tryExtractLine(line, i, allLines, colMap, extracted, unvalued) {
   // Match keywords only against name-column items (left of value column)
   const nameItems = nameItemsOf(line.items, colMap);
   if (!nameItems.length) return;
@@ -783,22 +866,21 @@ function tryExtractLine(line, i, allLines, colMap, extracted) {
   const lm = matchLine(nameText);
   if (!lm) return;
 
-  // Extract value+ref+units from the current line
+  // `value`/`ref`/`units` below stay in the marker's NATIVE (as-printed)
+  // unit throughout this function — this is what ultimately gets
+  // returned/stored. `canonicalValue`, additionally converted into the
+  // marker's fixed default unit via markerUnitScale, exists ONLY for the
+  // plausibility check and disambiguation below — VALUE_LIMITS/REF_RANGES
+  // are defined in that default unit, so a value still in an alternate
+  // as-printed unit (e.g. T3 as "97.33 ng/dL", or a cell count as "3663
+  // /mm³" against a "x10^3/uL"-default marker) looks physiologically
+  // implausible against limits meant for a different unit and would
+  // otherwise be wrongly discarded.
   let { value, ref, units } = extractValueAndRef(line.items, '', colMap);
-  const scale = unitScale(units);
-  if (value !== null) value = value * scale;
-  if (scale !== 1) ref = scaleRef(ref, scale);
   let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value, units);
 
-  // Normalize into the marker's default unit BEFORE the plausibility check
-  // below — a value still in its as-printed alternate unit (e.g. T3 as
-  // "97.33 ng/dL") looks physiologically implausible against limits meant
-  // for the default unit and would otherwise be discarded or trigger a
-  // lookAheadValue search that wanders into an unrelated line's value.
-  if (canonical) {
-    const mScale = markerUnitScale(canonical, units) ?? 1;
-    if (mScale !== 1 && value !== null) { value = value * mScale; ref = scaleRef(ref, mScale); }
-  }
+  let mScale = canonical ? (markerUnitScale(canonical, units) ?? 1) : 1;
+  let canonicalValue = value !== null && mScale !== 1 ? value * mScale : value;
 
   // Speculative peek: name-only lines (Orange two-line structure) have no value yet —
   // look at the next line to get a value/ref so we can disambiguate.
@@ -807,18 +889,44 @@ function tryExtractLine(line, i, allLines, colMap, extracted) {
     const la = peekNextValue(allLines, i, colMap);
     if (la.value !== null) {
       canonical = disambiguate(lm.candidates, la.ref, la.value, la.units);
-      if (canonical) { value = la.value; ref = la.ref; }
+      if (canonical) {
+        value = la.value; ref = la.ref; units = la.units;
+        mScale = markerUnitScale(canonical, units) ?? 1;
+        canonicalValue = mScale !== 1 ? value * mScale : value;
+      }
     }
   }
 
   if (!canonical || extracted[canonical]) return;
 
   // Look ahead if value is still missing or out of physiological range
-  if (value === null || !inValueRange(canonical, value)) {
-    ({ value, ref } = lookAheadValue(allLines, i, canonical, colMap, extracted));
+  if (canonicalValue === null || !inValueRange(canonical, canonicalValue)) {
+    const la = lookAheadValue(allLines, i, canonical, colMap, extracted);
+    value = la.value; ref = la.ref; units = la.units;
+    mScale = value !== null ? (markerUnitScale(canonical, units) ?? 1) : 1;
+    canonicalValue = value !== null && mScale !== 1 ? value * mScale : value;
   }
 
-  if (value === null || !inValueRange(canonical, value)) return;
+  if (canonicalValue === null || !inValueRange(canonical, canonicalValue)) {
+    unvalued.add(canonical);
+    return;
+  }
 
-  extracted[canonical] = { value, ref: ref ?? REF_RANGES[canonical] ?? '' };
+  // matchedUnitLabel() only cleans units for markers with a configured
+  // alternate-units list; a marker with just one implicit default unit has
+  // no such list to match against, so the raw scanned text (which can still
+  // carry glued-on junk from the same PDF item — a reference range in
+  // parens "ug/L(4.0 - 15.2)", a risk-category label "Low Risk: 3.3-4.4",
+  // a bare digit-dash-digit range "0.3-5.5", or a leading "*value*" that a
+  // preceding column bled into "*0.16 *X 10³ / μL") falls through
+  // unchanged. Strip each of those as a general fallback — units never
+  // legitimately contain "(", "<", ">", ":", or a numeric range.
+  const rawUnit = matchedUnitLabel(canonical, units) || units || MARKER_UNITS[canonical]?.find(u => u.default)?.unit || '';
+  const cleanedUnit = rawUnit
+    .replace(/^\*[\d.]+\s*\*?\s*/, '')
+    .replace(/[(<>].*$/, '')
+    .replace(/:?\s*[\d.]+\s*-\s*[\d.]+.*$/, '')
+    .trim();
+  const unit = cleanedUnit || MARKER_UNITS[canonical]?.find(u => u.default)?.unit || '';
+  extracted[canonical] = { value, unit, ref: ref ?? refRangeForUnit(canonical, unit) ?? '' };
 }

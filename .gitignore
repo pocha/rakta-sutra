@@ -8,3 +8,9 @@ track-blood-firebase-adminsdk-fbsvc-745c2fec63.json
 skills-lock.json
 firebase-debug.log
 .DS_Store
+
+# Flutter rewrite (mobile_flutter/) — the JS bridge bundle is a build
+# artifact (bridge/build.sh), regenerated from bridge/src, not committed.
+bridge/dist/
+mobile_flutter/assets/bridge/
+mobile_flutter/android/app/google-services.json

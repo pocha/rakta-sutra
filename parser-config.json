@@ -13,7 +13,7 @@
     "AST/ALT Ratio": [0.1, 15],
     "Average Blood Glucose": [40, 600],
     "Basophils %": [0, 10],
-    "Basophils Absolute": [0, 500],
+    "Basophils Absolute": [0, 0.5],
     "Bicarbonate": [5, 60],
     "Bilirubin Direct": [0.01, 30],
     "Bilirubin Indirect": [0.01, 30],
@@ -31,7 +31,7 @@
     "Creatinine": [0.2, 20],
     "Creatinine (Urine)": [20, 500],
     "Eosinophils %": [0, 60],
-    "Eosinophils Absolute": [0, 2000],
+    "Eosinophils Absolute": [0, 2],
     "Erythrocyte Sedimentation Rate": [0, 200],
     "Fasting Glucose": [30, 700],
     "Ferritin": [1, 10000],
@@ -49,7 +49,7 @@
     "High Sensitivity Troponin I": [0, 5000],
     "Homocysteine": [0.5, 200],
     "Immature Granulocytes %": [0, 20],
-    "Immature Granulocytes Absolute": [0, 500],
+    "Immature Granulocytes Absolute": [0, 0.5],
     "Immunoglobulin A": [1, 2000],
     "Immunoglobulin E": [1, 50000],
     "Immunoglobulin G": [50, 5000],
@@ -62,17 +62,17 @@
     "Lipoprotein(a)": [1, 2000],
     "Luteinizing Hormone (LH)": [0.1, 200],
     "Lymphocytes %": [1, 100],
-    "Lymphocytes Absolute": [50, 10000],
+    "Lymphocytes Absolute": [0.05, 10],
     "Magnesium": [0.5, 5],
     "Mean Corpuscular Hemoglobin": [10, 50],
     "Mean Corpuscular Hemoglobin Concentration": [20, 45],
     "Mean Corpuscular Volume": [50, 130],
     "Mean Platelet Volume": [5, 20],
     "Monocytes %": [0, 30],
-    "Monocytes Absolute": [10, 3000],
+    "Monocytes Absolute": [0.01, 3],
     "Neutrophil Lymphocyte Ratio": [0.1, 30],
     "Neutrophils %": [1, 100],
-    "Neutrophils Absolute": [100, 20000],
+    "Neutrophils Absolute": [0.1, 20],
     "Omega-3 Index": [0.5, 30],
     "Phosphorus": [0.5, 10],
     "Platelet Count": [10000, 2000000],
@@ -117,7 +117,7 @@
     "Vitamin E": [200, 25000],
     "Vitamin K": [0.02, 10],
     "VLDL Cholesterol": [5, 80],
-    "White Blood Cell Count": [500, 100000],
+    "White Blood Cell Count": [0.5, 100],
     "Zinc": [10, 300]
   },
   "refRanges": {
@@ -291,7 +291,14 @@
       { "unit": "%", "scale": 1, "default": true }
     ],
     "Basophils Absolute": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Bicarbonate": [
       { "unit": "mmol/L", "scale": 1, "default": true }
@@ -345,7 +352,14 @@
       { "unit": "%", "scale": 1, "default": true }
     ],
     "Eosinophils Absolute": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Erythrocyte Sedimentation Rate": [
       { "unit": "mm/h", "scale": 1, "default": true }
@@ -399,7 +413,14 @@
       { "unit": "%", "scale": 1, "default": true }
     ],
     "Immature Granulocytes Absolute": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Immunoglobulin A": [
       { "unit": "mg/dL", "scale": 1, "default": true }
@@ -433,7 +454,14 @@
       { "unit": "%", "scale": 1, "default": true }
     ],
     "Lymphocytes Absolute": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Magnesium": [
       { "unit": "mg/dL", "scale": 1, "default": true }
@@ -454,13 +482,27 @@
       { "unit": "%", "scale": 1, "default": true }
     ],
     "Monocytes Absolute": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Neutrophils %": [
       { "unit": "%", "scale": 1, "default": true }
     ],
     "Neutrophils Absolute": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Omega-3 Index": [
       { "unit": "%", "scale": 1, "default": true }
@@ -472,7 +514,10 @@
     "Platelet Count": [
       { "unit": "cells/μL", "scale": 1, "default": true },
       { "unit": "lakhs", "scale": 100000 },
-      { "unit": "lakh", "scale": 100000 }
+      { "unit": "lakh", "scale": 100000 },
+      { "unit": "X 10³ / μL", "scale": 1000 },
+      { "unit": "10^3/μL", "scale": 1000 },
+      { "unit": "x109/L", "scale": 1000 }
     ],
     "Platelet Distribution Width": [
       { "unit": "fL", "scale": 1, "default": true }
@@ -592,7 +637,14 @@
       { "unit": "mg/dL", "scale": 1, "default": true }
     ],
     "White Blood Cell Count": [
-      { "unit": "x10^3/uL", "scale": 1, "default": true }
+      { "unit": "x10^3/uL", "scale": 1, "default": true },
+      { "unit": "X 10³ / μL", "scale": 1 },
+      { "unit": "10^3/μL", "scale": 1 },
+      { "unit": "x109/L", "scale": 1 },
+      { "unit": "/cumm", "scale": 0.001 },
+      { "unit": "/mm³", "scale": 0.001 },
+      { "unit": "/cmm", "scale": 0.001 },
+      { "unit": "cu.mm", "scale": 0.001 }
     ],
     "Zinc": [
       { "unit": "ug/dL", "scale": 1, "default": true },

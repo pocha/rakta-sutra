@@ -6,9 +6,11 @@
   import { showToast } from '../lib/toast.svelte.js';
   import Fab from './Fab.svelte';
   import Icon from './Icon.svelte';
+  import Skeleton from './Skeleton.svelte';
 
   let { profileId } = $props();
 
+  let loading = $state(true);
   let reminders = $state([]);
   let permissionBlocked = $state(false);
 
@@ -20,8 +22,13 @@
   let saving = $state(false);
 
   onMount(async () => {
-    await load();
-    await refreshPermission();
+    loading = true;
+    try {
+      await load();
+      await refreshPermission();
+    } finally {
+      loading = false;
+    }
   });
 
   async function load() {
@@ -109,38 +116,42 @@
     </div>
   {/if}
   <div class="feed">
-    <h3>Upcoming</h3>
-    {#if !upcoming.length}<p class="empty">No upcoming reminders.</p>{/if}
-    {#each upcoming as r (r.id)}
-      <div class="card">
-        <div>
-          <div class="when">{formatWhen(r)}</div>
-          <div class="text">{r.text}</div>
+    {#if loading}
+      <Skeleton rows={4} />
+    {:else}
+      <h3>Upcoming</h3>
+      {#if !upcoming.length}<p class="empty">No upcoming reminders.</p>{/if}
+      {#each upcoming as r (r.id)}
+        <div class="card">
+          <div>
+            <div class="when">{formatWhen(r)}</div>
+            <div class="text">{r.text}</div>
+          </div>
+          <div class="actions">
+            <button class="icon-btn-sm" onclick={() => openModal(r)} aria-label="Edit reminder">
+              <Icon name="pen-line" size={16} />
+            </button>
+            <button class="icon-btn-sm danger" onclick={() => remove(r)} aria-label="Delete reminder">
+              <Icon name="trash-2" size={16} />
+            </button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="icon-btn-sm" onclick={() => openModal(r)} aria-label="Edit reminder">
-            <Icon name="pen-line" size={16} />
-          </button>
+      {/each}
+
+      <h3>Past</h3>
+      {#if !past.length}<p class="empty">No past reminders.</p>{/if}
+      {#each past as r (r.id)}
+        <div class="card past">
+          <div>
+            <div class="when">{formatWhen(r)}</div>
+            <div class="text">{r.text}</div>
+          </div>
           <button class="icon-btn-sm danger" onclick={() => remove(r)} aria-label="Delete reminder">
             <Icon name="trash-2" size={16} />
           </button>
         </div>
-      </div>
-    {/each}
-
-    <h3>Past</h3>
-    {#if !past.length}<p class="empty">No past reminders.</p>{/if}
-    {#each past as r (r.id)}
-      <div class="card past">
-        <div>
-          <div class="when">{formatWhen(r)}</div>
-          <div class="text">{r.text}</div>
-        </div>
-        <button class="icon-btn-sm danger" onclick={() => remove(r)} aria-label="Delete reminder">
-          <Icon name="trash-2" size={16} />
-        </button>
-      </div>
-    {/each}
+      {/each}
+    {/if}
   </div>
 
   {#if !permissionBlocked}

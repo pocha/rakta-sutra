@@ -1,0 +1,775 @@
+{
+  "valueLimits": {
+    "Albumin": [1, 8],
+    "Albumin/Globulin Ratio": [0.1, 5],
+    "Alkaline Phosphatase": [10, 3000],
+    "Alpha-Fetoprotein": [0.1, 5000],
+    "ALT (Alanine Transaminase)": [2, 5000],
+    "Amylase": [10, 2000],
+    "Apolipoprotein A1": [30, 300],
+    "Apolipoprotein B": [10, 300],
+    "Apolipoprotein B/A1 Ratio": [0.1, 5],
+    "AST (Aspartate Aminotransferase)": [3, 5000],
+    "AST/ALT Ratio": [0.1, 15],
+    "Average Blood Glucose": [40, 600],
+    "Basophils %": [0, 10],
+    "Basophils Absolute": [0, 500],
+    "Bicarbonate": [5, 60],
+    "Bilirubin Direct": [0.01, 30],
+    "Bilirubin Indirect": [0.01, 30],
+    "Bilirubin Total": [0.1, 50],
+    "Blood Urea Nitrogen": [1, 200],
+    "Blood Urea Nitrogen/Creatinine Ratio": [1, 100],
+    "Calcium": [4, 15],
+    "Cancer Antigen 125": [0.1, 5000],
+    "Cancer Antigen 15-3": [0.1, 5000],
+    "Carbohydrate Antigen 19-9": [0.1, 5000],
+    "Carcinoembryonic Antigen": [0.1, 1000],
+    "Chloride": [70, 130],
+    "Cholesterol/HDL Ratio": [1, 15],
+    "Coenzyme Q10": [0.05, 20],
+    "Creatinine": [0.2, 20],
+    "Creatinine (Urine)": [20, 500],
+    "Eosinophils %": [0, 60],
+    "Eosinophils Absolute": [0, 2000],
+    "Erythrocyte Sedimentation Rate": [0, 200],
+    "Fasting Glucose": [30, 700],
+    "Ferritin": [1, 10000],
+    "Follicle Stimulating Hormone (FSH)": [0.1, 200],
+    "Free T4": [0.1, 10],
+    "Gamma-Glutamyl Transferase": [2, 3000],
+    "Globulin": [0.5, 8],
+    "Glomerular Filtration Rate (eGFR)": [1, 200],
+    "Glycated Hemoglobin (HbA1c)": [3, 20],
+    "HDL Cholesterol": [10, 150],
+    "HDL/LDL Ratio": [0.05, 8],
+    "Hematocrit": [10, 70],
+    "Hemoglobin": [3, 25],
+    "High Sensitivity CRP": [0.01, 300],
+    "High Sensitivity Troponin I": [0, 5000],
+    "Homocysteine": [0.5, 200],
+    "Immature Granulocytes %": [0, 20],
+    "Immature Granulocytes Absolute": [0, 500],
+    "Immunoglobulin A": [1, 2000],
+    "Immunoglobulin E": [1, 50000],
+    "Immunoglobulin G": [50, 5000],
+    "Immunoglobulin M": [1, 1000],
+    "INR": [0.3, 10],
+    "Insulin": [0.5, 500],
+    "LDL Cholesterol": [20, 500],
+    "LDL/HDL Ratio": [0.1, 10],
+    "Lipase": [2, 3000],
+    "Lipoprotein(a)": [1, 2000],
+    "Luteinizing Hormone (LH)": [0.1, 200],
+    "Lymphocytes %": [1, 100],
+    "Lymphocytes Absolute": [50, 10000],
+    "Magnesium": [0.5, 5],
+    "Mean Corpuscular Hemoglobin": [10, 50],
+    "Mean Corpuscular Hemoglobin Concentration": [20, 45],
+    "Mean Corpuscular Volume": [50, 130],
+    "Mean Platelet Volume": [5, 20],
+    "Monocytes %": [0, 30],
+    "Monocytes Absolute": [10, 3000],
+    "Neutrophil Lymphocyte Ratio": [0.1, 30],
+    "Neutrophils %": [1, 100],
+    "Neutrophils Absolute": [100, 20000],
+    "Omega-3 Index": [0.5, 30],
+    "Phosphorus": [0.5, 10],
+    "Platelet Count": [10000, 2000000],
+    "Platelet Distribution Width": [5, 30],
+    "Platelet Large Cell Ratio": [5, 70],
+    "Plateletcrit": [0.05, 2],
+    "Potassium": [1.5, 9],
+    "Prolactin": [0.5, 500],
+    "Prothrombin Time": [3, 60],
+    "RBC Count": [1, 8],
+    "Red Cell Distribution Width-CV": [5, 30],
+    "Red Cell Distribution Width-SD": [20, 80],
+    "Rheumatoid Factor": [1, 500],
+    "Serum Iron": [5, 400],
+    "Sodium": [100, 180],
+    "T4 Total": [0.5, 30],
+    "Testosterone": [5, 2000],
+    "Thyroid Stimulating Hormone": [0.001, 100],
+    "Total Cholesterol": [50, 600],
+    "Total Iron Binding Capacity": [50, 800],
+    "Total Protein": [2, 12],
+    "Total PSA": [0.01, 500],
+    "Transferrin": [50, 800],
+    "Transferrin Saturation": [1, 100],
+    "Triglycerides": [20, 3000],
+    "Triiodothyronine (T3) Total": [0.1, 10],
+    "Unsaturated Iron Binding Capacity": [30, 600],
+    "Urea": [3, 400],
+    "Urea/Creatinine Ratio": [10, 70],
+    "Uric Acid": [1, 20],
+    "Urinary Microalbumin": [0, 500],
+    "Urine Albumin/Creatinine Ratio": [0, 300],
+    "Urine pH": [3, 10],
+    "Urine Specific Gravity": [0.98, 1.06],
+    "Vitamin A": [50, 2000],
+    "Vitamin B12": [50, 5000],
+    "Vitamin B9": [0.5, 80],
+    "Vitamin C": [0.05, 10],
+    "Vitamin D": [1, 200],
+    "Vitamin D2": [0.1, 200],
+    "Vitamin D3": [1, 200],
+    "Vitamin E": [200, 25000],
+    "Vitamin K": [0.02, 10],
+    "VLDL Cholesterol": [5, 80],
+    "White Blood Cell Count": [500, 100000],
+    "Zinc": [10, 300]
+  },
+  "refRanges": {
+    "Albumin": "3.2-4.8 g/dL",
+    "Albumin/Globulin Ratio": "0.9-2",
+    "Alkaline Phosphatase": "45-129 U/L",
+    "Alpha-Fetoprotein": "< 10 ng/mL",
+    "ALT (Alanine Transaminase)": "< 45 U/L",
+    "Amylase": "30-110 U/L",
+    "Apolipoprotein A1": "105-175 mg/dL",
+    "Apolipoprotein B": "60-140 mg/dL",
+    "Apolipoprotein B/A1 Ratio": "0.35-0.98",
+    "AST (Aspartate Aminotransferase)": "< 35 U/L",
+    "AST/ALT Ratio": "< 2",
+    "Average Blood Glucose": "90-120 mg/dL",
+    "Basophils %": "0-2 %",
+    "Basophils Absolute": "0.02-0.1 x10^3/uL",
+    "Bicarbonate": "22-29 mmol/L",
+    "Bilirubin Direct": "< 0.20 mg/dL",
+    "Bilirubin Indirect": "0-0.9 mg/dL",
+    "Bilirubin Total": "0.3-1.2 mg/dL",
+    "Blood Urea Nitrogen": "7.94-20.07 mg/dL",
+    "Blood Urea Nitrogen/Creatinine Ratio": "9-23",
+    "Calcium": "8.8-10.6 mg/dL",
+    "Cancer Antigen 125": "< 35 U/mL",
+    "Cancer Antigen 15-3": "< 30 U/mL",
+    "Carbohydrate Antigen 19-9": "< 37 U/mL",
+    "Carcinoembryonic Antigen": "< 4 ng/mL",
+    "Chloride": "98-107 mmol/L",
+    "Cholesterol/HDL Ratio": "< 5",
+    "Coenzyme Q10": "0.5-1.5 ug/mL",
+    "Creatinine": "0.72-1.18 mg/dL",
+    "Creatinine (Urine)": "28-259 mg/dL",
+    "Eosinophils %": "1-6 %",
+    "Eosinophils Absolute": "0.02-0.5 x10^3/uL",
+    "Erythrocyte Sedimentation Rate": "0-20 mm/h",
+    "Fasting Glucose": "70-100 mg/dL",
+    "Ferritin": "12-300 ng/mL",
+    "Follicle Stimulating Hormone (FSH)": "1.5-12.4 mIU/mL",
+    "Free T4": "0.8-1.8 ng/dL",
+    "Gamma-Glutamyl Transferase": "< 55 U/L",
+    "Globulin": "2.5-3.4 g/dL",
+    "Glomerular Filtration Rate (eGFR)": ">= 90 mL/min/1.73m2",
+    "Glycated Hemoglobin (HbA1c)": "< 5.7 %",
+    "HDL Cholesterol": "40-60 mg/dL",
+    "HDL/LDL Ratio": "> 0.4",
+    "Hematocrit": "40-50 %",
+    "Hemoglobin": "13.0-17.0 g/dL",
+    "High Sensitivity CRP": "< 1 mg/L",
+    "High Sensitivity Troponin I": "0.0-58.05 pg/mL",
+    "Homocysteine": "4.7-12.6 umol/L",
+    "Immature Granulocytes %": "< 1 %",
+    "Immature Granulocytes Absolute": "< 0.06 x10^3/uL",
+    "Immunoglobulin A": "70-400 mg/dL",
+    "Immunoglobulin E": "< 100 IU/mL",
+    "Immunoglobulin G": "700-1600 mg/dL",
+    "Immunoglobulin M": "40-230 mg/dL",
+    "INR": "0.8-1.2",
+    "Insulin": "2.6-24.9 uIU/mL",
+    "LDL Cholesterol": "< 100 mg/dL",
+    "LDL/HDL Ratio": "< 3.5",
+    "Lipase": "10-140 U/L",
+    "Lipoprotein(a)": "< 30 mg/dL",
+    "Luteinizing Hormone (LH)": "1.5-9.3 mIU/mL",
+    "Lymphocytes %": "20-40 %",
+    "Lymphocytes Absolute": "1.0-3.0 x10^3/uL",
+    "Magnesium": "1.6-2.3 mg/dL",
+    "Mean Corpuscular Hemoglobin": "27-32 pg",
+    "Mean Corpuscular Hemoglobin Concentration": "31.5-34.5 g/dL",
+    "Mean Corpuscular Volume": "83-101 fL",
+    "Mean Platelet Volume": "6.5-12 fL",
+    "Monocytes %": "2-10 %",
+    "Monocytes Absolute": "0.2-1.0 x10^3/uL",
+    "Neutrophil Lymphocyte Ratio": "1-3",
+    "Neutrophils %": "40-80 %",
+    "Neutrophils Absolute": "2.0-7.0 x10^3/uL",
+    "Omega-3 Index": "> 8 %",
+    "Phosphorus": "2.5-4.5 mg/dL",
+    "Platelet Count": "150000-410000 cells/μL",
+    "Platelet Distribution Width": "9.6-15.2 fL",
+    "Platelet Large Cell Ratio": "19.7-42.4 %",
+    "Plateletcrit": "0.19-0.39 %",
+    "Potassium": "3.5-5.5 mmol/L",
+    "Prolactin": "4.0-15.2 ng/mL",
+    "Prothrombin Time": "8.0-12.0 secs",
+    "RBC Count": "4.5-5.5 x10^6/uL",
+    "Red Cell Distribution Width-CV": "11.6-14 %",
+    "Red Cell Distribution Width-SD": "39-46 fL",
+    "Rheumatoid Factor": "< 14 IU/mL",
+    "Serum Iron": "65-175 ug/dL",
+    "Sodium": "137-145 mmol/L",
+    "T4 Total": "4.5-12.5 ug/dL",
+    "Testosterone": "264-916 ng/dL",
+    "Thyroid Stimulating Hormone": "0.35-4.94 uIU/mL",
+    "Total Cholesterol": "< 200 mg/dL",
+    "Total Iron Binding Capacity": "225-535 ug/dL",
+    "Total Protein": "5.7-8.2 g/dL",
+    "Total PSA": "< 4 ng/mL",
+    "Transferrin": "200-360 mg/dL",
+    "Transferrin Saturation": "13-45 %",
+    "Triglycerides": "< 150 mg/dL",
+    "Triiodothyronine (T3) Total": "0.6-1.81 ng/mL",
+    "Unsaturated Iron Binding Capacity": "162-368 ug/dL",
+    "Urea": "17-43 mg/dL",
+    "Urea/Creatinine Ratio": "< 52",
+    "Uric Acid": "4.2-7.3 mg/dL",
+    "Urinary Microalbumin": "< 25 ug/mL",
+    "Urine Albumin/Creatinine Ratio": "< 30 ug/mg",
+    "Urine pH": "4.5-8.0",
+    "Urine Specific Gravity": "1.003-1.030",
+    "Vitamin A": "300-1200 ng/mL",
+    "Vitamin B12": "211-911 pg/mL",
+    "Vitamin B9": "3.96-16.76 ng/mL",
+    "Vitamin C": "0.4-2.0 mg/dL",
+    "Vitamin D": "30-100 ng/mL",
+    "Vitamin E": "5500-18000 ng/mL",
+    "Vitamin K": "0.10-2.20 ng/mL",
+    "VLDL Cholesterol": "5-40 mg/dL",
+    "White Blood Cell Count": "4.0-10.0 x10^3/uL",
+    "Zinc": "70-120 ug/dL"
+  },
+  "markerGroups": [
+    { "label": "CBC", "keys": ["Hemoglobin", "Hematocrit", "RBC Count", "Mean Corpuscular Volume", "Mean Corpuscular Hemoglobin", "Mean Corpuscular Hemoglobin Concentration", "Red Cell Distribution Width-CV", "Red Cell Distribution Width-SD", "White Blood Cell Count", "Neutrophils %", "Neutrophils Absolute", "Lymphocytes %", "Lymphocytes Absolute", "Monocytes %", "Monocytes Absolute", "Eosinophils %", "Eosinophils Absolute", "Basophils %", "Basophils Absolute", "Immature Granulocytes %", "Immature Granulocytes Absolute", "Platelet Count", "Mean Platelet Volume", "Platelet Distribution Width", "Plateletcrit", "Platelet Large Cell Ratio"] },
+    { "label": "Lipid", "keys": ["Total Cholesterol", "HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol", "Triglycerides"] },
+    { "label": "Urine", "keys": ["Urinary Microalbumin", "Creatinine (Urine)", "Urine Albumin/Creatinine Ratio", "Urine pH", "Urine Specific Gravity"] },
+    { "label": "Liver (LFT)", "keys": ["AST (Aspartate Aminotransferase)", "ALT (Alanine Transaminase)", "AST/ALT Ratio", "Alkaline Phosphatase", "Gamma-Glutamyl Transferase", "Bilirubin Total", "Bilirubin Direct", "Bilirubin Indirect", "Total Protein", "Albumin", "Globulin", "Albumin/Globulin Ratio"] },
+    { "label": "Kidney (KFT)", "keys": ["Creatinine", "Blood Urea Nitrogen", "Urea", "Uric Acid", "Calcium", "Glomerular Filtration Rate (eGFR)", "Blood Urea Nitrogen/Creatinine Ratio", "Urea/Creatinine Ratio"] },
+    { "label": "Thyroid", "keys": ["Thyroid Stimulating Hormone", "Triiodothyronine (T3) Total", "T4 Total"] },
+    { "label": "Vitamins", "keys": ["Vitamin D", "Vitamin D2", "Vitamin D3", "Vitamin B12", "Vitamin B9", "Vitamin A", "Vitamin E", "Vitamin K", "Vitamin C"] },
+    { "label": "Blood Sugar", "keys": ["Fasting Glucose", "Glycated Hemoglobin (HbA1c)", "Average Blood Glucose"] },
+    { "label": "Iron Studies", "keys": ["Serum Iron", "Total Iron Binding Capacity", "Unsaturated Iron Binding Capacity", "Transferrin Saturation", "Ferritin", "Transferrin"] },
+    { "label": "Electrolytes", "keys": ["Sodium", "Potassium", "Chloride", "Magnesium", "Phosphorus", "Bicarbonate"] },
+    { "label": "Cardiac", "keys": ["High Sensitivity CRP", "Homocysteine", "Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio", "Cholesterol/HDL Ratio", "LDL/HDL Ratio", "HDL/LDL Ratio", "Lipoprotein(a)", "High Sensitivity Troponin I"] },
+    { "label": "Tumour Markers", "keys": ["Cancer Antigen 125", "Carbohydrate Antigen 19-9", "Carcinoembryonic Antigen", "Total PSA", "Alpha-Fetoprotein", "Cancer Antigen 15-3"] },
+    { "label": "Immunology", "keys": ["Immunoglobulin E", "Rheumatoid Factor", "Immunoglobulin A", "Immunoglobulin G", "Immunoglobulin M"] },
+    { "label": "Hormones", "keys": ["Prolactin", "Luteinizing Hormone (LH)", "Follicle Stimulating Hormone (FSH)", "Free T4", "Insulin"] },
+    { "label": "Coagulation", "keys": ["Prothrombin Time", "INR"] },
+    { "label": "Other", "keys": ["Erythrocyte Sedimentation Rate", "Neutrophil Lymphocyte Ratio", "Amylase", "Lipase", "Testosterone", "Coenzyme Q10", "Omega-3 Index", "Zinc"] }
+  ],
+  "units": {
+    "Albumin": [
+      { "unit": "g/dL", "scale": 1, "default": true },
+      { "unit": "g/L", "scale": 0.1 }
+    ],
+    "Alkaline Phosphatase": [
+      { "unit": "U/L", "scale": 1, "default": true }
+    ],
+    "Alpha-Fetoprotein": [
+      { "unit": "ng/mL", "scale": 1, "default": true },
+      { "unit": "ug/L", "scale": 1 }
+    ],
+    "ALT (Alanine Transaminase)": [
+      { "unit": "U/L", "scale": 1, "default": true }
+    ],
+    "Amylase": [
+      { "unit": "U/L", "scale": 1, "default": true }
+    ],
+    "Apolipoprotein A1": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Apolipoprotein B": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "AST (Aspartate Aminotransferase)": [
+      { "unit": "U/L", "scale": 1, "default": true }
+    ],
+    "Average Blood Glucose": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Basophils %": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Basophils Absolute": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Bicarbonate": [
+      { "unit": "mmol/L", "scale": 1, "default": true }
+    ],
+    "Bilirubin Direct": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "umol/L", "scale": 0.058466 }
+    ],
+    "Bilirubin Indirect": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "umol/L", "scale": 0.058466 }
+    ],
+    "Bilirubin Total": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "umol/L", "scale": 0.058466 }
+    ],
+    "Blood Urea Nitrogen": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Calcium": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 4.008 }
+    ],
+    "Cancer Antigen 125": [
+      { "unit": "U/mL", "scale": 1, "default": true }
+    ],
+    "Cancer Antigen 15-3": [
+      { "unit": "U/mL", "scale": 1, "default": true }
+    ],
+    "Carbohydrate Antigen 19-9": [
+      { "unit": "U/mL", "scale": 1, "default": true }
+    ],
+    "Carcinoembryonic Antigen": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Chloride": [
+      { "unit": "mmol/L", "scale": 1, "default": true }
+    ],
+    "Coenzyme Q10": [
+      { "unit": "ug/mL", "scale": 1, "default": true }
+    ],
+    "Creatinine": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "umol/L", "scale": 0.011312 }
+    ],
+    "Creatinine (Urine)": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 11.312 }
+    ],
+    "Eosinophils %": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Eosinophils Absolute": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Erythrocyte Sedimentation Rate": [
+      { "unit": "mm/h", "scale": 1, "default": true }
+    ],
+    "Fasting Glucose": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Ferritin": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Follicle Stimulating Hormone (FSH)": [
+      { "unit": "mIU/mL", "scale": 1, "default": true }
+    ],
+    "Free T4": [
+      { "unit": "ng/dL", "scale": 1, "default": true },
+      { "unit": "pmol/L", "scale": 0.0776 }
+    ],
+    "Gamma-Glutamyl Transferase": [
+      { "unit": "U/L", "scale": 1, "default": true }
+    ],
+    "Globulin": [
+      { "unit": "g/dL", "scale": 1, "default": true },
+      { "unit": "g/L", "scale": 0.1 }
+    ],
+    "Glomerular Filtration Rate (eGFR)": [
+      { "unit": "mL/min/1.73m2", "scale": 1, "default": true }
+    ],
+    "Glycated Hemoglobin (HbA1c)": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "HDL Cholesterol": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 38.67 }
+    ],
+    "Hematocrit": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Hemoglobin": [
+      { "unit": "g/dL", "scale": 1, "default": true }
+    ],
+    "High Sensitivity CRP": [
+      { "unit": "mg/L", "scale": 1, "default": true }
+    ],
+    "High Sensitivity Troponin I": [
+      { "unit": "pg/mL", "scale": 1, "default": true }
+    ],
+    "Homocysteine": [
+      { "unit": "umol/L", "scale": 1, "default": true }
+    ],
+    "Immature Granulocytes %": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Immature Granulocytes Absolute": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Immunoglobulin A": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Immunoglobulin E": [
+      { "unit": "IU/mL", "scale": 1, "default": true }
+    ],
+    "Immunoglobulin G": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Immunoglobulin M": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Insulin": [
+      { "unit": "uIU/mL", "scale": 1, "default": true }
+    ],
+    "LDL Cholesterol": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 38.67 }
+    ],
+    "Lipase": [
+      { "unit": "U/L", "scale": 1, "default": true }
+    ],
+    "Lipoprotein(a)": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Luteinizing Hormone (LH)": [
+      { "unit": "mIU/mL", "scale": 1, "default": true }
+    ],
+    "Lymphocytes %": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Lymphocytes Absolute": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Magnesium": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Mean Corpuscular Hemoglobin": [
+      { "unit": "pg", "scale": 1, "default": true }
+    ],
+    "Mean Corpuscular Hemoglobin Concentration": [
+      { "unit": "g/dL", "scale": 1, "default": true }
+    ],
+    "Mean Corpuscular Volume": [
+      { "unit": "fL", "scale": 1, "default": true }
+    ],
+    "Mean Platelet Volume": [
+      { "unit": "fL", "scale": 1, "default": true }
+    ],
+    "Monocytes %": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Monocytes Absolute": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Neutrophils %": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Neutrophils Absolute": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Omega-3 Index": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Phosphorus": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 3.097 }
+    ],
+    "Platelet Count": [
+      { "unit": "cells/μL", "scale": 1, "default": true },
+      { "unit": "lakhs", "scale": 100000 },
+      { "unit": "lakh", "scale": 100000 }
+    ],
+    "Platelet Distribution Width": [
+      { "unit": "fL", "scale": 1, "default": true }
+    ],
+    "Platelet Large Cell Ratio": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Plateletcrit": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Potassium": [
+      { "unit": "mmol/L", "scale": 1, "default": true }
+    ],
+    "Prolactin": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Prothrombin Time": [
+      { "unit": "secs", "scale": 1, "default": true }
+    ],
+    "RBC Count": [
+      { "unit": "x10^6/uL", "scale": 1, "default": true }
+    ],
+    "Red Cell Distribution Width-CV": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Red Cell Distribution Width-SD": [
+      { "unit": "fL", "scale": 1, "default": true }
+    ],
+    "Rheumatoid Factor": [
+      { "unit": "IU/mL", "scale": 1, "default": true }
+    ],
+    "Serum Iron": [
+      { "unit": "ug/dL", "scale": 1, "default": true }
+    ],
+    "Sodium": [
+      { "unit": "mmol/L", "scale": 1, "default": true }
+    ],
+    "T4 Total": [
+      { "unit": "ug/dL", "scale": 1, "default": true }
+    ],
+    "Testosterone": [
+      { "unit": "ng/dL", "scale": 1, "default": true },
+      { "unit": "nmol/L", "scale": 28.842 }
+    ],
+    "Thyroid Stimulating Hormone": [
+      { "unit": "uIU/mL", "scale": 1, "default": true },
+      { "unit": "mIU/L", "scale": 1 }
+    ],
+    "Total Cholesterol": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 38.67 }
+    ],
+    "Total Iron Binding Capacity": [
+      { "unit": "ug/dL", "scale": 1, "default": true }
+    ],
+    "Total Protein": [
+      { "unit": "g/dL", "scale": 1, "default": true },
+      { "unit": "g/L", "scale": 0.1 }
+    ],
+    "Total PSA": [
+      { "unit": "ng/mL", "scale": 1, "default": true },
+      { "unit": "ug/L", "scale": 1 }
+    ],
+    "Transferrin": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Transferrin Saturation": [
+      { "unit": "%", "scale": 1, "default": true }
+    ],
+    "Triglycerides": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 88.57 }
+    ],
+    "Triiodothyronine (T3) Total": [
+      { "unit": "ng/mL", "scale": 1, "default": true },
+      { "unit": "ng/dL", "scale": 0.01 }
+    ],
+    "Unsaturated Iron Binding Capacity": [
+      { "unit": "ug/dL", "scale": 1, "default": true }
+    ],
+    "Urea": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 6.006 }
+    ],
+    "Uric Acid": [
+      { "unit": "mg/dL", "scale": 1, "default": true },
+      { "unit": "mmol/L", "scale": 16.811 }
+    ],
+    "Urinary Microalbumin": [
+      { "unit": "ug/mL", "scale": 1, "default": true }
+    ],
+    "Urine Albumin/Creatinine Ratio": [
+      { "unit": "ug/mg", "scale": 1, "default": true }
+    ],
+    "Vitamin A": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Vitamin B12": [
+      { "unit": "pg/mL", "scale": 1, "default": true }
+    ],
+    "Vitamin B9": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Vitamin C": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "Vitamin D": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Vitamin E": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "Vitamin K": [
+      { "unit": "ng/mL", "scale": 1, "default": true }
+    ],
+    "VLDL Cholesterol": [
+      { "unit": "mg/dL", "scale": 1, "default": true }
+    ],
+    "White Blood Cell Count": [
+      { "unit": "x10^3/uL", "scale": 1, "default": true }
+    ],
+    "Zinc": [
+      { "unit": "ug/dL", "scale": 1, "default": true },
+      { "unit": "umol/L", "scale": 6.538 }
+    ]
+  },
+  "keywordMap": {
+    "ABSOLUTE": ["Neutrophils Absolute", "Lymphocytes Absolute", "Monocytes Absolute", "Eosinophils Absolute", "Basophils Absolute"],
+    "AFP": ["Alpha-Fetoprotein"],
+    "AGRATIO": ["Albumin/Globulin Ratio"],
+    "ALANINE": ["ALT (Alanine Transaminase)"],
+    "ALBUMIN": ["Albumin", "Albumin/Globulin Ratio", "Urinary Microalbumin", "Urine Albumin/Creatinine Ratio"],
+    "ALP": ["Alkaline Phosphatase", "Alpha-Fetoprotein", "Total Protein", "Lipoprotein(a)", "Vitamin E"],
+    "ALPHA": ["Alpha-Fetoprotein", "Vitamin E"],
+    "ALPHATOCOPHEROL": ["Vitamin E"],
+    "ALT": ["ALT (Alanine Transaminase)", "AST/ALT Ratio"],
+    "AMINOTRANSFERASE": ["AST (Aspartate Aminotransferase)", "ALT (Alanine Transaminase)", "AST/ALT Ratio"],
+    "ANTIGEN": ["Cancer Antigen 125", "Carbohydrate Antigen 19-9", "Carcinoembryonic Antigen"],
+    "APOA1": ["Apolipoprotein A1"],
+    "APOB": ["Apolipoprotein B", "Apolipoprotein B/A1 Ratio"],
+    "APOBA1": ["Apolipoprotein B/A1 Ratio"],
+    "APOLIPOPROTEIN": ["Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio"],
+    "ASPARTATE": ["AST (Aspartate Aminotransferase)"],
+    "AST": ["AST (Aspartate Aminotransferase)", "AST/ALT Ratio"],
+    "BASOPHIL": ["Basophils %", "Basophils Absolute"],
+    "BILIRUBIN": ["Bilirubin Total", "Bilirubin Direct", "Bilirubin Indirect"],
+    "BLOODUREA": ["Urea", "Blood Urea Nitrogen"],
+    "BUN": ["Blood Urea Nitrogen", "Blood Urea Nitrogen/Creatinine Ratio"],
+    "CA125": ["Cancer Antigen 125"],
+    "CA153": ["Cancer Antigen 15-3"],
+    "CA199": ["Carbohydrate Antigen 19-9"],
+    "CANCER": ["Cancer Antigen 125", "Carbohydrate Antigen 19-9", "Carcinoembryonic Antigen"],
+    "CEA": ["Carcinoembryonic Antigen"],
+    "CHOL": ["Total Cholesterol", "HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol", "Cholesterol/HDL Ratio"],
+    "CHOLESTEROL": ["Total Cholesterol", "HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol", "Cholesterol/HDL Ratio"],
+    "COQ10": ["Coenzyme Q10"],
+    "CREATININE": ["Creatinine", "Glomerular Filtration Rate (eGFR)", "Creatinine (Urine)", "Urine Albumin/Creatinine Ratio", "Blood Urea Nitrogen/Creatinine Ratio", "Urea/Creatinine Ratio"],
+    "CREATININESERUM": ["Creatinine"],
+    "CRIT": ["Hematocrit", "Plateletcrit"],
+    "CRP": ["High Sensitivity CRP"],
+    "CYANOCOBALAMIN": ["Vitamin B12"],
+    "DISTRIBUTION": ["Red Cell Distribution Width-CV", "Red Cell Distribution Width-SD", "Platelet Distribution Width"],
+    "EGFR": ["Glomerular Filtration Rate (eGFR)"],
+    "EOSINOPHIL": ["Eosinophils %", "Eosinophils Absolute"],
+    "ESR": ["Erythrocyte Sedimentation Rate"],
+    "FOLATE": ["Vitamin B9"],
+    "FOLIC": ["Vitamin B9"],
+    "FOLICACID": ["Vitamin B9"],
+    "FSH": ["Follicle Stimulating Hormone (FSH)"],
+    "GAMMAGT": ["Gamma-Glutamyl Transferase"],
+    "GGT": ["Gamma-Glutamyl Transferase"],
+    "GLOBULIN": ["Globulin", "Albumin/Globulin Ratio"],
+    "GLUCOSE": ["Fasting Glucose", "Average Blood Glucose"],
+    "HBA1C": ["Glycated Hemoglobin (HbA1c)"],
+    "HCT": ["Hematocrit"],
+    "HDL": ["HDL Cholesterol", "Cholesterol/HDL Ratio", "LDL/HDL Ratio", "HDL/LDL Ratio"],
+    "HDLCHOLESTEROLRATIO": ["Cholesterol/HDL Ratio"],
+    "HEMOGLOBIN": ["Hemoglobin", "Mean Corpuscular Hemoglobin", "Mean Corpuscular Hemoglobin Concentration", "Glycated Hemoglobin (HbA1c)"],
+    "HGB": ["Hemoglobin"],
+    "HIGHSENSITIVITYCREACTIVEPROTEIN": ["High Sensitivity CRP"],
+    "HORMONE": ["Luteinizing Hormone (LH)", "Follicle Stimulating Hormone (FSH)", "Thyroid Stimulating Hormone"],
+    "HSCRP": ["High Sensitivity CRP"],
+    "IGE": ["Immunoglobulin E"],
+    "IGG": ["Immunoglobulin G"],
+    "IGM": ["Immunoglobulin M"],
+    "IMMATUREGRANULOCYTE": ["Immature Granulocytes %", "Immature Granulocytes Absolute"],
+    "IMMATUREGRANULOCYTEPERCENTAGE": ["Immature Granulocytes %"],
+    "IMMATUREGRANULOCYTES": ["Immature Granulocytes %", "Immature Granulocytes Absolute"],
+    "IMMUNOGLOBULIN": ["Immunoglobulin A", "Immunoglobulin G", "Immunoglobulin M", "Immunoglobulin E"],
+    "INR": ["INR"],
+    "IRON": ["Serum Iron", "Total Iron Binding Capacity", "Unsaturated Iron Binding Capacity", "Transferrin Saturation"],
+    "LDL": ["LDL Cholesterol", "VLDL Cholesterol", "LDL/HDL Ratio", "HDL/LDL Ratio"],
+    "LEUCOCYTE": ["White Blood Cell Count"],
+    "LEUKOCYTE": ["White Blood Cell Count"],
+    "LH": ["Luteinizing Hormone (LH)"],
+    "LIPOPROTEIN": ["HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol", "Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio", "Lipoprotein(a)"],
+    "LIPOPROTEINA": ["Lipoprotein(a)"],
+    "LPA": ["Lipoprotein(a)"],
+    "LYMPHOCYTE": ["Lymphocytes %", "Lymphocytes Absolute", "Neutrophil Lymphocyte Ratio"],
+    "MCH": ["Mean Corpuscular Hemoglobin"],
+    "MCHC": ["Mean Corpuscular Hemoglobin Concentration"],
+    "MCV": ["Mean Corpuscular Volume"],
+    "MICROALBUMIN": ["Urinary Microalbumin"],
+    "MONOCYTE": ["Monocytes %", "Monocytes Absolute"],
+    "MPV": ["Mean Platelet Volume"],
+    "NEUTROPHIL": ["Neutrophils %", "Neutrophils Absolute", "Neutrophil Lymphocyte Ratio"],
+    "PCV": ["Hematocrit"],
+    "PDW": ["Platelet Distribution Width"],
+    "PHOSPHATASE": ["Alkaline Phosphatase"],
+    "PHOSPHATE": ["Phosphorus"],
+    "PLATELET": ["Platelet Count", "Mean Platelet Volume", "Platelet Distribution Width", "Plateletcrit", "Platelet Large Cell Ratio"],
+    "PROSTATESPECIFIC": ["Total PSA"],
+    "PROSTATESPECIFICANTIGEN": ["Total PSA"],
+    "PROTEIN": ["Total Protein", "Albumin", "Globulin", "High Sensitivity CRP"],
+    "PSA": ["Total PSA"],
+    "RATIO": ["Neutrophil Lymphocyte Ratio", "AST/ALT Ratio", "Albumin/Globulin Ratio", "Blood Urea Nitrogen/Creatinine Ratio", "Urea/Creatinine Ratio", "Apolipoprotein B/A1 Ratio", "Platelet Large Cell Ratio", "Urine Albumin/Creatinine Ratio", "Cholesterol/HDL Ratio", "LDL/HDL Ratio", "HDL/LDL Ratio"],
+    "RBC": ["RBC Count"],
+    "RDW": ["Red Cell Distribution Width-CV", "Red Cell Distribution Width-SD"],
+    "RDWCV": ["Red Cell Distribution Width-CV"],
+    "RDWSD": ["Red Cell Distribution Width-SD"],
+    "REDCELLCOUNT": ["RBC Count"],
+    "SATURATION": ["Transferrin Saturation"],
+    "SERUMCREATININE": ["Creatinine"],
+    "SGOT": ["AST (Aspartate Aminotransferase)", "AST/ALT Ratio"],
+    "SGPT": ["ALT (Alanine Transaminase)", "AST/ALT Ratio"],
+    "T3": ["Triiodothyronine (T3) Total"],
+    "T4": ["T4 Total", "Free T4"],
+    "TG": ["Triglycerides"],
+    "THYROID": ["Thyroid Stimulating Hormone", "Triiodothyronine (T3) Total", "T4 Total"],
+    "TIBC": ["Total Iron Binding Capacity"],
+    "TLC": ["White Blood Cell Count"],
+    "TRANSAMINASE": ["AST (Aspartate Aminotransferase)", "ALT (Alanine Transaminase)", "AST/ALT Ratio"],
+    "TRANSFERRIN": ["Total Iron Binding Capacity", "Transferrin Saturation", "Transferrin"],
+    "TRIGLYCERIDE": ["Triglycerides"],
+    "TSH": ["Thyroid Stimulating Hormone"],
+    "TT3": ["Triiodothyronine (T3) Total"],
+    "TT4": ["T4 Total"],
+    "UIBC": ["Unsaturated Iron Binding Capacity"],
+    "UREA": ["Urea", "Blood Urea Nitrogen"],
+    "VITAMIN": ["Vitamin D", "Vitamin D2", "Vitamin D3", "Vitamin B12", "Vitamin B9", "Vitamin A", "Vitamin E", "Vitamin K"],
+    "VITAMIND": ["Vitamin D", "Vitamin D2", "Vitamin D3"],
+    "VITAMIND25": ["Vitamin D"],
+    "VITAMIND25HYDROXY": ["Vitamin D"],
+    "VITAMINDTOTAL": ["Vitamin D"],
+    "VLDL": ["VLDL Cholesterol"],
+    "VOLUME": ["Mean Corpuscular Volume", "Mean Platelet Volume"],
+    "WBC": ["White Blood Cell Count"],
+    "WHITECELLCOUNT": ["White Blood Cell Count"]
+  },
+  "colPatterns": {
+    "test": { "source": "\\b(test|test\\s*name|investigation|parameter)\\b", "flags": "i" },
+    "value": { "source": "\\b(results?|values?|observed\\s*values?)\\b", "flags": "i" },
+    "reference": { "source": "\\b(ref(?:erence)?\\.?\\s*(?:interval)?|bio\\.?\\s*ref|biological\\s*ref|normal\\s*range|b\\.r\\.i\\.?)\\b", "flags": "i" },
+    "units": { "source": "\\bunits?\\b", "flags": "i" }
+  },
+  "skipPatterns": [
+    { "source": "^\\(\\s*method\\s*:", "flags": "i" },
+    { "source": "^\\(\\s*specimen\\s*:", "flags": "i" },
+    { "source": "^page\\s*:\\s*\\d", "flags": "i" },
+    { "source": "^processed\\s*at", "flags": "i" },
+    { "source": "^patient\\s*(name)?[\\s:]", "flags": "i" },
+    { "source": "^referred\\s*by", "flags": "i" },
+    { "source": "^sample\\s*(collected|received|type|barcode)", "flags": "i" },
+    { "source": "^report\\s*(released|status|date)", "flags": "i" },
+    { "source": "^home\\s*collection", "flags": "i" },
+    { "source": "^tests?\\s*done", "flags": "i" },
+    { "source": "^disclaimer", "flags": "i" },
+    { "source": "^please\\s*correlate", "flags": "i" },
+    { "source": "^method\\s*:", "flags": "i" },
+    { "source": "^address", "flags": "i" },
+    { "source": "^branch", "flags": "i" },
+    { "source": "^sid\\s*no", "flags": "i" },
+    { "source": "^reg\\s*(date|no)", "flags": "i" },
+    { "source": "^dr\\.", "flags": "i" },
+    { "source": "^scan\\s*qr", "flags": "i" },
+    { "source": "^alert\\s*!", "flags": "i" },
+    { "source": "^\\*?note\\s*[-–:]", "flags": "i" },
+    { "source": "^clinical\\s*significance", "flags": "i" },
+    { "source": "^specifications?:", "flags": "i" },
+    { "source": "^conditions\\s*of\\s*reporting", "flags": "i" },
+    { "source": "^test\\s*name\\s*$", "flags": "i" },
+    { "source": "^investigation\\s*\\/?\\s*method\\s*$", "flags": "i" }
+  ],
+  "datePatterns": [
+    { "source": "\\b(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})\\b", "flags": "", "day": 1, "month": 2, "year": 3, "monthIsNumeric": true },
+    { "source": "\\b(\\d{1,2})[\\/\\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\\/\\-](\\d{4})\\b", "flags": "i", "day": 1, "month": 2, "year": 3, "monthIsNumeric": false },
+    { "source": "\\b(\\d{1,2})[\\/\\-](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\\/\\-](\\d{2})\\b", "flags": "i", "day": 1, "month": 2, "year": 3, "monthIsNumeric": false },
+    { "source": "\\b(\\d{1,2})\\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[,\\s]+(\\d{4})\\b", "flags": "i", "day": 1, "month": 2, "year": 3, "monthIsNumeric": false }
+  ],
+  "layout": {
+    "lineBucket": 10,
+    "markerEndTolerance": 5,
+    "nameValueCutoff": 20,
+    "valueColumnTolerance": 70,
+    "referenceColumnTolerance": 90,
+    "unitsColumnTolerance": 70,
+    "lookAheadLines": 2,
+    "minItemsPerPage": 8
+  }
+}

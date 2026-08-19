@@ -11,7 +11,8 @@ export const appState = $state({
   activeTab: 'report', // 'report' | 'timeline' | 'reminder'
   jumpToReportId: null, // set by Timeline's "View full report" link
   drawerOpen: false,
-  screen: null, // null (normal tabs) | 'backup' | 'notifications' (pushed full screen)
+  screen: null, // null (normal tabs) | 'backup' | 'notifications' | 'markerDetail' (pushed full screen)
+  markerDetailCanonical: null, // set alongside screen = 'markerDetail'
 });
 
 export function openScreen(name) {
@@ -19,8 +20,14 @@ export function openScreen(name) {
   appState.drawerOpen = false;
 }
 
+export function openMarkerDetail(canonical) {
+  appState.markerDetailCanonical = canonical;
+  appState.screen = 'markerDetail';
+}
+
 export function closeScreen() {
   appState.screen = null;
+  appState.markerDetailCanonical = null;
 }
 
 export function jumpToReport(reportId) {

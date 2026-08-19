@@ -44,8 +44,8 @@ async function runReparseAll() {
       // ReportTab.svelte) — there's no UI to prompt from in this background
       // pass, so a password-protected report just fails like any other
       // per-report error and is skipped rather than aborting the batch.
-      const { extracted } = await parsePDF(arrayBuffer);
-      await replaceAutoExtractedMarkers(report.id, extracted);
+      const { extracted, unvaluedCanonicals } = await parsePDF(arrayBuffer);
+      await replaceAutoExtractedMarkers(report.id, extracted, unvaluedCanonicals);
       updated++;
     } catch (err) {
       failed++;

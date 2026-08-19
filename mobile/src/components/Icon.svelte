@@ -13,6 +13,8 @@
     'alarm-clock': '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/>',
     'chevron-left': '<path d="m15 18-6-6 6-6"/>',
     'chevron-right': '<path d="m9 18 6-6-6-6"/>',
+    'chevron-up': '<path d="m18 15-6-6-6 6"/>',
+    'chevron-down': '<path d="m6 9 6 6 6-6"/>',
     plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
     'trash-2': '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>',
     'share-2': '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>',

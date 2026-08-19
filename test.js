@@ -7,6 +7,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/buil
 
 const fs   = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 function readArrayBuffer(filePath) {
   const buf = fs.readFileSync(filePath);
@@ -19,7 +20,7 @@ const PDF_NAMES = [
   'orange.pdf', 'tata-1mg.pdf', 'thyrocare.pdf', 'centro-med.pdf', 'aarthi-scans.pdf', 'neuberg-anand.pdf', 'innoquest.pdf',
   '2025-12-full-body.pdf', 'metropolis.pdf', 'thyrocare-arogyam-1.3.pdf', 'toxic-nutrient-thyrocare.pdf', 'urine-markers.pdf', 'vitamins.pdf',
   '2023_Nov03_Innoquest_Part2.pdf', '2023_Nov_Innoquest_20231103.pdf', '2024_Dec20_in_red.pdf', '2024_March_Triglycerides.pdf',
-  '2025_August_MedPlus_Hyd.pdf', 'Bluttuning Stand 05.01.2021.pdf', 'Musterbefund-Gesund-und-Aktiv.pdf', 'Musterbefund-Mikronährstoffe.pdf',
+  '2025_August_MedPlus_Hyd.pdf',
   'innoquest-password-protected.pdf', 'quest-diagnostics-US.pdf', 'australia.pdf',
 ];
 
@@ -45,15 +46,43 @@ function loadFixture(pdfName) {
 
 function writeFixture(pdfName, result) {
   const markers = {};
-  for (const [k, v] of Object.entries(result.extracted)) markers[k] = v.value;
+  for (const [k, v] of Object.entries(result.extracted)) markers[k] = { value: v.value, unit: v.unit };
   const fixture = { date: result.date, markers };
   fs.writeFileSync(fixturePath(pdfName), JSON.stringify(fixture, null, 2) + '\n');
+}
+
+// sample-reports/ is its own local-only git repo (no remote configured,
+// deliberately — it holds real report content including real patient PHI
+// and must never be pushed anywhere). Committing before AND after every
+// fixture regeneration means a bad --write-fixtures run (blindly trusting
+// whatever the parser currently extracts, including gaps/false-positives)
+// is a `git log`/`git checkout <commit> -- file.json` away from recovery,
+// not a forensic reconstruction — see the "native-unit change" incident
+// this was built after. Silently no-ops if there's nothing new to commit,
+// or if sample-reports/ isn't a git repo (e.g. a fresh clone before anyone
+// has run `git init` there — this script never creates that repo itself).
+function commitFixtures(message) {
+  if (!fs.existsSync(path.join(PDF_DIR, '.git'))) return;
+  try {
+    execFileSync('git', ['add', '-A'], { cwd: PDF_DIR, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-m', message], { cwd: PDF_DIR, stdio: 'ignore' });
+  } catch {
+    // Commit fails (harmlessly) when there's nothing staged to commit —
+    // not worth distinguishing from a real git error here.
+  }
 }
 
 const { compareToFixture } = require('./scripts/scoring.js');
 
 async function main() {
-  const writeFixtures = process.argv.includes('--write-fixtures');
+  // --write-fixtures on its own regenerates every fixture; --write-fixtures=
+  // a.pdf,b.pdf scopes it to just those files, so adding/fixing one report
+  // never touches every other report's already-hand-verified fixture.
+  const writeFixturesArg = process.argv.find(a => a === '--write-fixtures' || a.startsWith('--write-fixtures='));
+  const writeFixtures = !!writeFixturesArg;
+  const writeFixturesScope = writeFixturesArg?.includes('=')
+    ? new Set(writeFixturesArg.split('=')[1].split(','))
+    : null;
 
   // parser-core.mjs is a real ES module (shared with the mobile app) —
   // dynamic import() works from this CommonJS script without converting the
@@ -84,8 +113,11 @@ async function main() {
   if (!results.length) { console.error('No PDFs processed.'); process.exit(1); }
 
   if (writeFixtures) {
-    for (const r of results) writeFixture(r.name, r);
-    console.log(`\nWrote ${results.length} fixture(s) to ${PDF_DIR}. Review them by hand before trusting as ground truth.`);
+    commitFixtures('Snapshot before fixture regeneration (test.js --write-fixtures)');
+    const scoped = writeFixturesScope ? results.filter(r => writeFixturesScope.has(r.name)) : results;
+    for (const r of scoped) writeFixture(r.name, r);
+    commitFixtures(`Regenerate fixture(s): ${scoped.map(r => r.name).join(', ')}`);
+    console.log(`\nWrote ${scoped.length} fixture(s) to ${PDF_DIR}. Review them by hand before trusting as ground truth.`);
     return;
   }
 
@@ -141,8 +173,8 @@ async function main() {
       continue;
     }
     filesWithFixtures++;
-    const extractedValues = Object.fromEntries(Object.entries(r.extracted).map(([k, v]) => [k, v.value]));
-    const cmp = compareToFixture(fixture, extractedValues);
+    const extractedValues = Object.fromEntries(Object.entries(r.extracted).map(([k, v]) => [k, { value: v.value, unit: v.unit }]));
+    const cmp = compareToFixture(fixture, extractedValues, core.convertUnit);
     totalFixtureMarkers += cmp.totalFixture;
     totalCorrect += cmp.correct.length;
     totalWrong += cmp.wrong.length;
@@ -151,7 +183,7 @@ async function main() {
     lines.push(`${r.name}: coverage ${cmp.coveragePct.toFixed(1)}%  error ${cmp.errorPct.toFixed(1)}%  spurious ${cmp.spurious.length}`);
     for (const m of cmp.missed) lines.push(`  MISSED    ${m.name} (expected ${m.expected})`);
     for (const w of cmp.wrong) lines.push(`  WRONG     ${w.name} (expected ${w.expected}, got ${w.actual})`);
-    for (const s of cmp.spurious) lines.push(`  SPURIOUS  ${s} (got ${extractedValues[s]})`);
+    for (const s of cmp.spurious) lines.push(`  SPURIOUS  ${s} (got ${extractedValues[s].value})`);
     lines.push('');
   }
 

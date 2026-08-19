@@ -27,6 +27,7 @@
     "@capacitor/local-notifications": "^8.2.1",
     "@capacitor/share": "^8.0.1",
     "@capawesome/capacitor-file-picker": "^8.0.3",
+    "chart.js": "^4.5.1",
     "chrono-node": "^2.10.1",
     "firebase": "^12.16.0",
     "html2canvas": "^1.4.1",

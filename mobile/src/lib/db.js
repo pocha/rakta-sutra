@@ -9,11 +9,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { CapacitorSQLite, SQLiteConnection } from '@capacitor-community/sqlite';
 import { Capacitor } from '@capacitor/core';
-import { parseRefRange } from './parser.js';
+import { parseRefRange, refRangeForUnit, convertUnit, inValueRangeForUnit, valueLimitsForUnit } from './parser.js';
 
 const DB_NAME = 'trackblood';
 const sqlite = new SQLiteConnection(CapacitorSQLite);
 let db;
+
+// Bumped whenever markers' shape changes in a way that can't be expressed
+// as a plain `CREATE TABLE IF NOT EXISTS` (e.g. dropping/renaming a
+// column) — see migrateMarkersSchemaIfNeeded() below. Pre-production, only
+// a handful of test installs, so the migration is destructive (drop +
+// reparse from the stored PDFs) rather than a careful in-place ALTER.
+const MARKERS_SCHEMA_VERSION = 2;
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS profiles (
@@ -31,12 +38,20 @@ const SCHEMA = `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- value is nullable: NULL means the marker's name was matched during
+  -- parsing but no usable value was found (or the user hasn't filled it in
+  -- yet) — same row shape either way, so filling one in later is just the
+  -- normal upsertMarker() update path, not a separate code path. unit is
+  -- whatever unit the value is actually expressed in (as printed, or as
+  -- entered) — there's no fixed canonical unit anymore; reference ranges
+  -- are computed on demand from that unit via refRangeForUnit(), not
+  -- stored per-row.
   CREATE TABLE IF NOT EXISTS markers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     canonical TEXT NOT NULL,
-    value REAL NOT NULL,
-    ref_range TEXT,
+    value REAL,
+    unit TEXT,
     manually_edited INTEGER NOT NULL DEFAULT 0,
     UNIQUE(report_id, canonical)
   );
@@ -136,6 +151,7 @@ export async function initDb() {
   await db.open();
   console.log('[initDb] db.execute(SCHEMA)…');
   await db.execute(SCHEMA);
+  const migrated = await migrateMarkersSchemaIfNeeded();
 
   const { values } = await db.query('SELECT COUNT(*) as n FROM profiles');
   if (values[0].n === 0) {
@@ -144,7 +160,35 @@ export async function initDb() {
 
   if (Capacitor.getPlatform() === 'web') await sqlite.saveToStore(DB_NAME);
   console.log('[initDb] done.');
-  return db;
+  return { db, migrated };
+}
+
+// Drops + recreates `markers` when its shape is out of date, since
+// `CREATE TABLE IF NOT EXISTS` above is a no-op against an already-existing
+// table with the old column shape. Returns true when a migration actually
+// ran, so the caller (main.js) knows to trigger a full reparse — markers.js
+// itself never calls reparseAll.js, to avoid a circular import (that file
+// already imports from here).
+async function migrateMarkersSchemaIfNeeded() {
+  const stored = await getDeviceSetting('markers_schema_version');
+  if (Number(stored) >= MARKERS_SCHEMA_VERSION) return false;
+
+  console.log('[initDb] markers schema out of date (stored:', stored, ', current:', MARKERS_SCHEMA_VERSION, ') — dropping and recreating');
+  await db.execute('DROP TABLE IF EXISTS markers;');
+  await db.execute(`
+    CREATE TABLE markers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_id INTEGER NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+      canonical TEXT NOT NULL,
+      value REAL,
+      unit TEXT,
+      manually_edited INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(report_id, canonical)
+    );
+    CREATE INDEX IF NOT EXISTS idx_markers_canonical ON markers(canonical);
+  `);
+  await setDeviceSetting('markers_schema_version', String(MARKERS_SCHEMA_VERSION));
+  return true;
 }
 
 async function persist() {
@@ -166,7 +210,11 @@ export async function deleteProfile(id) {
 }
 
 // ── Reports & markers ───────────────────────────────────────────────────────
-export async function addReport(profileId, reportDate, fileName, filePath, extractedMarkers) {
+// unvaluedCanonicals: markers whose name matched somewhere in the PDF but
+// that never got a plausible value (parsePDF()'s unvaluedCanonicals) —
+// inserted as {value: null, unit: null} placeholder rows so the Report
+// tab can show a blank, fillable card for them instead of nothing at all.
+export async function addReport(profileId, reportDate, fileName, filePath, extractedMarkers, unvaluedCanonicals = []) {
   await db.beginTransaction();
   try {
     const r = await db.run(
@@ -175,10 +223,18 @@ export async function addReport(profileId, reportDate, fileName, filePath, extra
       false
     );
     const reportId = r.changes.lastId;
-    for (const [canonical, { value, ref }] of Object.entries(extractedMarkers)) {
+    for (const [canonical, { value, unit }] of Object.entries(extractedMarkers)) {
       await db.run(
-        'INSERT INTO markers (report_id, canonical, value, ref_range) VALUES (?, ?, ?, ?)',
-        [reportId, canonical, value, ref ?? null],
+        'INSERT INTO markers (report_id, canonical, value, unit) VALUES (?, ?, ?, ?)',
+        [reportId, canonical, value, unit ?? null],
+        false
+      );
+    }
+    for (const canonical of unvaluedCanonicals) {
+      if (extractedMarkers[canonical]) continue; // already inserted with a real value above
+      await db.run(
+        'INSERT OR IGNORE INTO markers (report_id, canonical, value, unit) VALUES (?, ?, NULL, NULL)',
+        [reportId, canonical],
         false
       );
     }
@@ -193,7 +249,7 @@ export async function addReport(profileId, reportDate, fileName, filePath, extra
 
 export async function listReports(profileId) {
   return (await db.query(
-    'SELECT * FROM reports WHERE profile_id = ? ORDER BY report_date DESC',
+    'SELECT *, report_date as date FROM reports WHERE profile_id = ? ORDER BY report_date DESC',
     [profileId]
   )).values;
 }
@@ -210,14 +266,22 @@ export async function listAllReports() {
 // value for a canonical the user already corrected is silently dropped by
 // INSERT OR IGNORE, since the manually-edited row still occupies that
 // (report_id, canonical) UNIQUE slot.
-export async function replaceAutoExtractedMarkers(reportId, extractedMarkers) {
+export async function replaceAutoExtractedMarkers(reportId, extractedMarkers, unvaluedCanonicals = []) {
   await db.beginTransaction();
   try {
     await db.run('DELETE FROM markers WHERE report_id = ? AND manually_edited = 0', [reportId], false);
-    for (const [canonical, { value, ref }] of Object.entries(extractedMarkers)) {
+    for (const [canonical, { value, unit }] of Object.entries(extractedMarkers)) {
       await db.run(
-        'INSERT OR IGNORE INTO markers (report_id, canonical, value, ref_range) VALUES (?, ?, ?, ?)',
-        [reportId, canonical, value, ref ?? null],
+        'INSERT OR IGNORE INTO markers (report_id, canonical, value, unit) VALUES (?, ?, ?, ?)',
+        [reportId, canonical, value, unit ?? null],
+        false
+      );
+    }
+    for (const canonical of unvaluedCanonicals) {
+      if (extractedMarkers[canonical]) continue;
+      await db.run(
+        'INSERT OR IGNORE INTO markers (report_id, canonical, value, unit) VALUES (?, ?, NULL, NULL)',
+        [reportId, canonical],
         false
       );
     }
@@ -236,14 +300,45 @@ export async function getReportMarkers(reportId) {
   )).values;
 }
 
-export async function upsertMarker(reportId, canonical, value, refRange) {
+export async function upsertMarker(reportId, canonical, value, unit) {
   await db.run(
-    `INSERT INTO markers (report_id, canonical, value, ref_range, manually_edited)
+    `INSERT INTO markers (report_id, canonical, value, unit, manually_edited)
      VALUES (?, ?, ?, ?, 1)
-     ON CONFLICT(report_id, canonical) DO UPDATE SET value = excluded.value, manually_edited = 1`,
-    [reportId, canonical, value, refRange ?? null]
+     ON CONFLICT(report_id, canonical) DO UPDATE SET value = excluded.value, unit = excluded.unit, manually_edited = 1`,
+    [reportId, canonical, value, unit ?? null]
   );
   await persist();
+}
+
+// Unit-switch flow for the Report tab's per-marker unit dropdown: converts
+// the marker's currently-stored value into `newUnit` and only saves if the
+// converted value is still physiologically plausible — a unit switch is a
+// UI action, not a manual value correction, so it shouldn't be able to
+// silently write an implausible number just because the dropdown changed.
+// Returns { saved: true } on success, or { saved: false, range: [lo, hi] }
+// (range in newUnit, for a "value must be between X and Y" message) when
+// the conversion fails the check and nothing was written.
+export async function updateMarkerUnit(reportId, canonical, newUnit) {
+  const rows = (await db.query(
+    'SELECT value, unit FROM markers WHERE report_id = ? AND canonical = ?',
+    [reportId, canonical]
+  )).values;
+  const row = rows[0];
+  if (!row || row.value === null) return { saved: false, range: null };
+
+  const converted = convertUnit(canonical, row.value, row.unit ?? '', newUnit);
+  if (!inValueRangeForUnit(canonical, converted, newUnit)) {
+    return { saved: false, range: valueLimitsForUnit(canonical, newUnit) };
+  }
+
+  await db.run(
+    `INSERT INTO markers (report_id, canonical, value, unit, manually_edited)
+     VALUES (?, ?, ?, ?, 1)
+     ON CONFLICT(report_id, canonical) DO UPDATE SET value = excluded.value, unit = excluded.unit, manually_edited = 1`,
+    [reportId, canonical, converted, newUnit]
+  );
+  await persist();
+  return { saved: true, range: null };
 }
 
 export async function deleteReport(id) {
@@ -311,8 +406,9 @@ export async function deleteJournalEntry(id) {
 // ── Timeline ─────────────────────────────────────────────────────────────────
 // Default feed: one row per report (date + marker count + out-of-range count),
 // one row per journal note, merged and sorted by date (newest first).
-function isOutOfRange(value, refRange) {
-  const bounds = parseRefRange(refRange);
+function isOutOfRange(canonical, value, unit) {
+  if (value === null) return false;
+  const bounds = parseRefRange(refRangeForUnit(canonical, unit ?? ''));
   if (!bounds) return false;
   return (bounds.low !== null && value < bounds.low) || (bounds.high !== null && value > bounds.high);
 }
@@ -328,7 +424,7 @@ export async function getTimelineFeed(profileId) {
   // out-of-range count in JS using the same parseRefRange logic the Report
   // tab uses, rather than a SQL SUM that can't parse "< 5", "80-100", etc.
   const markerRows = (await db.query(
-    `SELECT m.report_id, m.value, m.ref_range
+    `SELECT m.report_id, m.canonical, m.value, m.unit
      FROM markers m JOIN reports r ON r.id = m.report_id
      WHERE r.profile_id = ?`,
     [profileId]
@@ -347,8 +443,8 @@ export async function getTimelineFeed(profileId) {
       file_name: r.file_name,
       file_path: r.file_path,
       kind: 'report',
-      marker_count: markers.length,
-      ref_count: markers.filter(m => isOutOfRange(m.value, m.ref_range)).length,
+      marker_count: markers.filter(m => m.value !== null).length,
+      ref_count: markers.filter(m => isOutOfRange(m.canonical, m.value, m.unit)).length,
     };
   });
 
@@ -365,9 +461,9 @@ export async function getTimelineFeed(profileId) {
 // every journal entry indexed against it, merged by date.
 export async function getMarkerTimeline(profileId, canonical) {
   const values = (await db.query(
-    `SELECT r.report_date as date, m.value, m.ref_range, 'value' as kind
+    `SELECT r.report_date as date, m.value, m.unit, 'value' as kind
      FROM markers m JOIN reports r ON r.id = m.report_id
-     WHERE r.profile_id = ? AND m.canonical = ?`,
+     WHERE r.profile_id = ? AND m.canonical = ? AND m.value IS NOT NULL`,
     [profileId, canonical]
   )).values;
 
@@ -389,9 +485,9 @@ const MAX_SHARED_REPORT_DATES = 3;
 
 export async function getConsolidatedMatrix(profileId) {
   const rows = (await db.query(
-    `SELECT r.report_date as date, m.canonical, m.value, m.ref_range
+    `SELECT r.report_date as date, m.canonical, m.value, m.unit
      FROM markers m JOIN reports r ON r.id = m.report_id
-     WHERE r.profile_id = ? ORDER BY r.report_date DESC`,
+     WHERE r.profile_id = ? AND m.value IS NOT NULL ORDER BY r.report_date DESC`,
     [profileId]
   )).values;
 
@@ -404,7 +500,9 @@ export async function getConsolidatedMatrix(profileId) {
   for (const row of rows) {
     markers[row.canonical] ??= {};
     markers[row.canonical][row.date] = row.value;
-    refRanges[row.canonical] ??= row.ref_range;
+    // Most-recent row's unit wins (rows arrive newest-first) — matches the
+    // shared PDF's own newest-first column order.
+    refRanges[row.canonical] ??= refRangeForUnit(row.canonical, row.unit ?? '');
   }
   return { dates, markers, refRanges };
 }
@@ -413,6 +511,10 @@ export async function getConsolidatedMatrix(profileId) {
 // for this profile (static), with each report's value keyed by report id so
 // the UI can swap which report's values are shown without re-querying —
 // only the "value" column swipes between reports, marker/range stay put.
+// Feeds the Report tab's swipeable value+unit column: one {value, unit} per
+// (canonical, report), since a report's unit is no longer a single
+// profile-wide constant — each report keeps whatever unit it was
+// parsed/entered in.
 export async function getConsolidatedReportData(profileId) {
   const reports = (await db.query(
     `SELECT id, report_date as date, file_name, file_path FROM reports WHERE profile_id = ? ORDER BY report_date DESC`,
@@ -420,28 +522,18 @@ export async function getConsolidatedReportData(profileId) {
   )).values;
 
   const markerRows = (await db.query(
-    `SELECT m.report_id, m.canonical, m.value, m.ref_range
+    `SELECT m.report_id, m.canonical, m.value, m.unit
      FROM markers m JOIN reports r ON r.id = m.report_id
      WHERE r.profile_id = ?`,
     [profileId]
   )).values;
 
-  const reportDateById = Object.fromEntries(reports.map(r => [r.id, r.date]));
   const valuesByCanonical = {};
-  const refRangeWithDate = {};
   for (const row of markerRows) {
-    (valuesByCanonical[row.canonical] ??= {})[row.report_id] = row.value;
-    const rowDate = reportDateById[row.report_id];
-    const existing = refRangeWithDate[row.canonical];
-    if (row.ref_range && (!existing || rowDate > existing.date)) {
-      refRangeWithDate[row.canonical] = { range: row.ref_range, date: rowDate };
-    }
+    (valuesByCanonical[row.canonical] ??= {})[row.report_id] = { value: row.value, unit: row.unit };
   }
-  const refRangeByCanonical = Object.fromEntries(
-    Object.entries(refRangeWithDate).map(([k, v]) => [k, v.range])
-  );
 
-  return { reports, valuesByCanonical, refRangeByCanonical };
+  return { reports, valuesByCanonical };
 }
 
 export async function listKnownMarkers(profileId) {
@@ -450,6 +542,67 @@ export async function listKnownMarkers(profileId) {
      WHERE r.profile_id = ? ORDER BY m.canonical`,
     [profileId]
   )).values.map(v => v.canonical);
+}
+
+// The unit a marker's card/chart should default to displaying — whichever
+// unit appears most often across this profile's own recorded history for
+// that canonical (not necessarily the config's canonical default unit;
+// this profile's reports might consistently use a different one). Ties
+// broken by whichever unit belongs to the most recent report.
+export async function getMajorityUnitByCanonical(profileId) {
+  const rows = (await db.query(
+    `SELECT m.canonical, m.unit, r.report_date as date
+     FROM markers m JOIN reports r ON r.id = m.report_id
+     WHERE r.profile_id = ? AND m.value IS NOT NULL AND m.unit IS NOT NULL AND m.unit != ''
+     ORDER BY r.report_date DESC`,
+    [profileId]
+  )).values;
+
+  const countsByCanonical = {};
+  for (const row of rows) {
+    const counts = (countsByCanonical[row.canonical] ??= {});
+    counts[row.unit] = (counts[row.unit] ?? 0) + 1;
+  }
+  // Most-recent-first row order above means the first unit seen for a given
+  // count is also the most recent one — a plain `>` (not `>=`) comparison
+  // below keeps that first-seen unit on a tie, which is exactly "ties
+  // broken by the most recent report's unit".
+  const majorityByCanonical = {};
+  for (const [canonical, counts] of Object.entries(countsByCanonical)) {
+    let best = null, bestCount = 0;
+    for (const [unit, count] of Object.entries(counts)) {
+      if (count > bestCount) { best = unit; bestCount = count; }
+    }
+    majorityByCanonical[canonical] = best;
+  }
+  return majorityByCanonical;
+}
+
+// Every value ever recorded for one marker, newest first — the data source
+// for MarkerChart.svelte. Each point carries its own native unit; the
+// caller converts into whatever unit it wants to plot against (see
+// convertUnit() in parser-core.mjs) rather than this function picking one.
+export async function getMarkerChartSeries(profileId, canonical) {
+  return (await db.query(
+    `SELECT r.id as report_id, r.report_date as date, m.value, m.unit
+     FROM markers m JOIN reports r ON r.id = m.report_id
+     WHERE r.profile_id = ? AND m.canonical = ? AND m.value IS NOT NULL
+     ORDER BY r.report_date DESC`,
+    [profileId, canonical]
+  )).values;
+}
+
+// The most recent recorded value for one marker — the "latest value" shown
+// at the top of the marker detail screen.
+export async function getLatestMarkerValue(profileId, canonical) {
+  const rows = (await db.query(
+    `SELECT m.value, m.unit, r.id as report_id, r.report_date as date
+     FROM markers m JOIN reports r ON r.id = m.report_id
+     WHERE r.profile_id = ? AND m.canonical = ? AND m.value IS NOT NULL
+     ORDER BY r.report_date DESC LIMIT 1`,
+    [profileId, canonical]
+  )).values;
+  return rows[0] ?? null;
 }
 
 // ── Reminders ────────────────────────────────────────────────────────────────

@@ -67,7 +67,7 @@ function withTimeout(promise, ms, label) {
 }
 
 Promise.all([withTimeout(initDb(), 10000, 'initDb'), initParserConfig()])
-  .then(() => {
+  .then(([{ migrated }]) => {
     mount(App, { target: document.getElementById('app') });
     // Flips index.html's global error/rejection handlers from "replace the
     // blank screen" to "show a toast" — the app is genuinely usable past
@@ -77,6 +77,16 @@ Promise.all([withTimeout(initDb(), 10000, 'initDb'), initParserConfig()])
     window.__reportError = (message) => showToast(message, 'error');
     initPush().catch((err) => console.error('[main] initPush failed:', err));
     reparseIfAppUpdated().catch((err) => console.error('[main] reparse-on-app-update check failed:', err));
+    // db.js just dropped and recreated `markers` (a schema change that
+    // can't be expressed as an in-place ALTER) — every report's markers
+    // need re-deriving from its stored PDF. reparseAllReports() coalesces
+    // concurrent callers, so this running alongside reparseIfAppUpdated()
+    // above (e.g. a migration shipping in the same release as another
+    // reparse-worthy change) is safe, not duplicated work.
+    if (migrated) {
+      console.log('[main] markers schema migrated — reparsing all stored reports');
+      reparseAllReports().catch((err) => console.error('[main] reparse-on-migration failed:', err));
+    }
   })
   .catch((err) => {
     console.error('[main] init failed:', err);
