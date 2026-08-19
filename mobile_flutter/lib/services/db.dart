@@ -2,9 +2,11 @@
 // no ORM, hand-written queries, deliberately small. Query results are plain
 // Map<String, Object?> rows (sqflite's native shape), matching db.js's own
 // "no model classes" approach rather than adding a parallel type per table.
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
+import 'legacy_migration.dart';
 import 'parser_config.dart';
 import 'parser_bridge.dart' show ParsedMarker;
 
@@ -63,7 +65,15 @@ class Db {
       await _db.execute('ALTER TABLE reports ADD COLUMN password TEXT');
     }
 
-    final profileCount = Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM profiles')) ?? 0;
+    var profileCount = Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM profiles')) ?? 0;
+    if (profileCount == 0 && await LegacyMigration.hasLegacyData()) {
+      try {
+        await LegacyMigration.migrate(_db);
+      } catch (err) {
+        debugPrint('[Db.init] legacy Capacitor migration failed, starting fresh instead: $err');
+      }
+      profileCount = Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM profiles')) ?? 0;
+    }
     if (profileCount == 0) {
       await _db.insert('profiles', {'name': 'You'});
     }

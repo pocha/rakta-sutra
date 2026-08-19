@@ -11,7 +11,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:sqflite/sqflite.dart' show getDatabasesPath;
 import 'db.dart';
+import 'legacy_migration.dart';
 import 'notifications.dart';
+import 'reparse_all.dart';
 
 class BackupService {
   static Future<void> createAndShare() async {
@@ -41,6 +43,21 @@ class BackupService {
     await SharePlus.instance.share(ShareParams(files: [XFile(zipFile.path)], title: 'Track Blood Backup'));
   }
 
+  static Future<void> _cancelAllReminders() async {
+    for (final r in await Db.instance.listAllReminders()) {
+      await cancelReminder(r['id'] as int).catchError((_) {});
+    }
+  }
+
+  static Future<void> _rescheduleFutureReminders() async {
+    final now = DateTime.now();
+    for (final r in await Db.instance.listAllReminders()) {
+      if (r['done'] == 1) continue;
+      if (!DateTime.parse(r['remind_at'] as String).isAfter(now)) continue;
+      await scheduleReminder(r['id'] as int, r['text'] as String, r['remind_at'] as String, r['recurrence'] as String?);
+    }
+  }
+
   // Replaces ALL current data on the device. Cancels every currently-
   // scheduled push before the DB (which owns that state) gets wiped out
   // from under them, then reschedules future non-done reminders from the
@@ -51,11 +68,7 @@ class BackupService {
     if (dbEntries.isEmpty) throw Exception('Backup zip is missing trackblood.db');
     final dbEntry = dbEntries.first;
 
-    final currentReminders = await Db.instance.listAllReminders();
-    for (final r in currentReminders) {
-      await cancelReminder(r['id'] as int).catchError((_) {});
-    }
-
+    await _cancelAllReminders();
     await Db.instance.close();
 
     final dbPath = p.join(await getDatabasesPath(), 'trackblood.db');
@@ -72,12 +85,37 @@ class BackupService {
     }
 
     await Db.instance.init();
+    await _rescheduleFutureReminders();
+  }
 
-    final now = DateTime.now();
-    for (final r in await Db.instance.listAllReminders()) {
-      if (r['done'] == 1) continue;
-      if (!DateTime.parse(r['remind_at'] as String).isAfter(now)) continue;
-      await scheduleReminder(r['id'] as int, r['text'] as String, r['remind_at'] as String, r['recurrence'] as String?);
-    }
+  // Manual fallback for legacy_migration.dart's automatic install-time
+  // path. That path only fires when Db.init() finds a brand-new, empty
+  // trackblood.db — which is the normal state right after updating the app
+  // in place, but won't be true anymore once someone's used the new app for
+  // a while (it'll have already seeded a default profile). This wipes the
+  // current trackblood.db and reinitializes, which re-triggers the same
+  // automatic migration since the fresh db will again have zero profiles —
+  // only finds anything if trackbloodSQLite.db is still sitting there
+  // (a full uninstall+reinstall, rather than an in-place update, wipes both
+  // sqlite files together, so this has nothing to recover from in that case).
+  static Future<bool> restoreFromLegacyCapacitorDb() async {
+    if (!await LegacyMigration.hasLegacyData()) return false;
+
+    await _cancelAllReminders();
+    await Db.instance.close();
+
+    final dbPath = p.join(await getDatabasesPath(), 'trackblood.db');
+    if (await File(dbPath).exists()) await File(dbPath).delete();
+    final docs = await getApplicationDocumentsDirectory();
+    final reportsDir = Directory(p.join(docs.path, 'reports'));
+    if (await reportsDir.exists()) await reportsDir.delete(recursive: true);
+
+    await Db.instance.init();
+    // Db.init()'s startup-only reparse hooks (main.dart) don't run for a
+    // restore triggered mid-session — this call is what main.dart would
+    // have done for us on a cold start.
+    await reparseAllReports();
+    await _rescheduleFutureReminders();
+    return true;
   }
 }
