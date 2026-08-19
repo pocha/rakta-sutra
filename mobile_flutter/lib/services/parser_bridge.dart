@@ -40,10 +40,8 @@ class ParsePdfResult {
 
 class JournalParseResult {
   final String dateIso;
-  final List<String> canonicals;
-  JournalParseResult(this.dateIso, this.canonicals);
-  factory JournalParseResult.fromJson(Map<String, dynamic> j) =>
-      JournalParseResult(j['date'] as String, (j['canonicals'] as List).cast<String>());
+  JournalParseResult(this.dateIso);
+  factory JournalParseResult.fromJson(Map<String, dynamic> j) => JournalParseResult(j['date'] as String);
 }
 
 class ReminderParseResult {

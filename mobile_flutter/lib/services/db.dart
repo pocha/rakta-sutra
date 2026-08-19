@@ -110,11 +110,6 @@ class Db {
       text TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-    CREATE TABLE IF NOT EXISTS journal_marker_index (
-      journal_id INTEGER NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-      canonical TEXT NOT NULL,
-      PRIMARY KEY (journal_id, canonical)
-    );
     CREATE TABLE IF NOT EXISTS reminders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -238,27 +233,31 @@ class Db {
   Future<void> deleteReport(int id) => _db.delete('reports', where: 'id = ?', whereArgs: [id]);
 
   // ── Journal ───────────────────────────────────────────────────────────
-  Future<int> addJournalEntry(int profileId, String entryDate, String text, List<String> canonicals) =>
-      _db.transaction((txn) async {
-        final id = await txn.insert('journal_entries', {'profile_id': profileId, 'entry_date': entryDate, 'text': text});
-        for (final c in canonicals) {
-          await txn.insert('journal_marker_index', {'journal_id': id, 'canonical': c}, conflictAlgorithm: ConflictAlgorithm.ignore);
-        }
-        return id;
-      });
+  Future<int> addJournalEntry(int profileId, String entryDate, String text) =>
+      _db.insert('journal_entries', {'profile_id': profileId, 'entry_date': entryDate, 'text': text});
 
-  Future<void> updateJournalEntry(int id, String entryDate, String text, List<String> canonicals) =>
-      _db.transaction((txn) async {
-        await txn.update('journal_entries', {'entry_date': entryDate, 'text': text}, where: 'id = ?', whereArgs: [id]);
-        await txn.delete('journal_marker_index', where: 'journal_id = ?', whereArgs: [id]);
-        for (final c in canonicals) {
-          await txn.insert('journal_marker_index', {'journal_id': id, 'canonical': c}, conflictAlgorithm: ConflictAlgorithm.ignore);
-        }
-      });
+  Future<void> updateJournalEntry(int id, String entryDate, String text) =>
+      _db.update('journal_entries', {'entry_date': entryDate, 'text': text}, where: 'id = ?', whereArgs: [id]);
 
   Future<void> deleteJournalEntry(int id) => _db.delete('journal_entries', where: 'id = ?', whereArgs: [id]);
 
   // ── Timeline ──────────────────────────────────────────────────────────
+  // Report items carry a 'canonicals' Set<String> (their actually-extracted
+  // markers) so timeline_tab.dart's chip-based search can filter reports by
+  // marker without extra per-item queries — accurate, since it's driven by
+  // real extracted values. Notes have no equivalent field — journal text is
+  // small in volume, so timeline_tab.dart just matches every chip (marker or
+  // free-text) straight against the note's own text instead (a prior version
+  // of this used a journal_marker_index table populated by keyword matching,
+  // but that included bare/ambiguous keywords like "VITAMIN" mapped to all 8
+  // vitamin markers, so a note mentioning only "Vitamin D" ended up
+  // indexed under Vitamin B12/C/E/etc too — removed rather than fixed, since
+  // direct text matching is both simpler and more precise here). Report
+  // items also carry
+  // 'markerValues' (canonical -> {value, unit}) so that when a search chip
+  // narrows to a specific marker, the card can show that marker's actual
+  // value for this report instead of just a generic marker count — this is
+  // what makes "search for Vitamin D" surface its value history.
   Future<List<Map<String, Object?>>> getTimelineFeed(int profileId) async {
     final reportRows = await _db.rawQuery(
       'SELECT id, report_date as date, file_name, file_path FROM reports WHERE profile_id = ? ORDER BY report_date DESC', [profileId],
@@ -279,29 +278,16 @@ class Db {
         'kind': 'report',
         'marker_count': markers.where((m) => m['value'] != null).length,
         'ref_count': markers.where((m) => config.isOutOfRange(m['canonical'] as String, m['value'] as double?, m['unit'] as String?)).length,
+        'canonicals': markers.map((m) => m['canonical'] as String).toSet(),
+        'markerValues': {for (final m in markers) m['canonical'] as String: {'value': m['value'], 'unit': m['unit']}},
       };
     }).toList();
 
     final notes = await _db.rawQuery(
       "SELECT id, entry_date as date, text, 'note' as kind FROM journal_entries WHERE profile_id = ? ORDER BY entry_date DESC", [profileId],
     );
-    final merged = [...reports, ...notes];
-    merged.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
-    return merged;
-  }
 
-  Future<List<Map<String, Object?>>> getMarkerTimeline(int profileId, String canonical) async {
-    final values = await _db.rawQuery(
-      "SELECT r.report_date as date, m.value, m.unit, 'value' as kind FROM markers m JOIN reports r ON r.id = m.report_id "
-      "WHERE r.profile_id = ? AND m.canonical = ? AND m.value IS NOT NULL",
-      [profileId, canonical],
-    );
-    final notes = await _db.rawQuery(
-      "SELECT j.entry_date as date, j.text, 'note' as kind FROM journal_entries j JOIN journal_marker_index idx ON idx.journal_id = j.id "
-      "WHERE j.profile_id = ? AND idx.canonical = ?",
-      [profileId, canonical],
-    );
-    final merged = [...values, ...notes];
+    final merged = [...reports, ...notes];
     merged.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
     return merged;
   }

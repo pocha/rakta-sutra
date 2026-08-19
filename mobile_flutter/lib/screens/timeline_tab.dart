@@ -9,6 +9,16 @@ import '../state/app_state.dart';
 import '../theme.dart';
 import '../utils/date_format.dart';
 
+// A committed search term: canonical non-null means it was picked from the
+// marker suggestion dropdown, null means it was just typed and committed on
+// a word boundary (space or keyboard submit) — see _TimelineTabState's
+// _commitMarkerChip/_commitTypedWord.
+class _SearchChip {
+  final String label;
+  final String? canonical;
+  const _SearchChip(this.label, {this.canonical});
+}
+
 class TimelineTab extends StatefulWidget {
   final int? profileId;
   const TimelineTab({super.key, required this.profileId});
@@ -21,8 +31,7 @@ class _TimelineTabState extends State<TimelineTab> {
   bool _loading = true;
   List<Map<String, Object?>> _feed = [];
   List<String> _knownMarkers = [];
-  String? _activeMarker;
-  List<Map<String, Object?>> _markerTimeline = [];
+  final List<_SearchChip> _chips = [];
   final _searchCtrl = TextEditingController();
   final _expandedReportIds = <int>{};
   final _reportDetailCache = <int, List<Map<String, Object?>>>{};
@@ -51,24 +60,51 @@ class _TimelineTabState extends State<TimelineTab> {
     });
   }
 
-  Future<void> _pickMarker(String marker) async {
-    final timeline = await Db.instance.getMarkerTimeline(
-      widget.profileId!,
-      marker,
-    );
+  void _commitMarkerChip(String canonical) {
     setState(() {
-      _activeMarker = marker;
-      _searchCtrl.text = marker;
-      _markerTimeline = timeline;
+      _chips.add(_SearchChip(canonical, canonical: canonical));
+      _searchCtrl.clear();
     });
   }
 
-  void _clearSearch() {
+  // Called on every keystroke, so the suggestion dropdown (computed straight
+  // off _searchCtrl.text in build()) stays live either way. If the field now
+  // ends with a space (a word boundary just typed), the word before it also
+  // becomes its own free-text chip and the field resets for the next word.
+  // Also called from onSubmitted (keyboard search/done key) with a synthetic
+  // trailing space so the last word isn't stranded if the user never
+  // actually types one.
+  void _onSearchChanged(String text) {
+    final word = text.endsWith(' ') ? text.trim() : null;
     setState(() {
-      _activeMarker = null;
-      _searchCtrl.clear();
-      _markerTimeline = [];
+      if (word != null && word.isNotEmpty) {
+        _chips.add(_SearchChip(word));
+        _searchCtrl.clear();
+      }
     });
+  }
+
+  void _removeChip(_SearchChip chip) => setState(() => _chips.remove(chip));
+
+  void _clearSearch() => setState(() {
+    _chips.clear();
+    _searchCtrl.clear();
+  });
+
+  List<_SearchChip> get _matchedMarkerChips => _chips.where((c) => c.canonical != null).toList();
+
+  bool _matches(Map<String, Object?> item) {
+    if (_chips.isEmpty) return true;
+    if (item['kind'] == 'report') {
+      if (_chips.any((c) => c.canonical == null)) return false; // reports have no free text to match
+      final canonicals = item['canonicals'] as Set<String>;
+      return _chips.every((c) => canonicals.contains(c.canonical));
+    }
+    // Notes: every chip (marker or free-text) just needs to appear in the
+    // note's own text — see getTimelineFeed's comment on why marker chips
+    // don't use journal_marker_index here.
+    final text = (item['text'] as String).toLowerCase();
+    return _chips.every((c) => text.contains(c.label.toLowerCase()));
   }
 
   Future<void> _toggleExpand(int reportId) async {
@@ -155,25 +191,21 @@ class _TimelineTabState extends State<TimelineTab> {
         widget.profileId!,
         parsed.dateIso,
         ctrl.text.trim(),
-        parsed.canonicals,
       );
     } else {
       await Db.instance.updateJournalEntry(
         note['id'] as int,
         parsed.dateIso,
         ctrl.text.trim(),
-        parsed.canonicals,
       );
     }
     await _load();
-    if (_activeMarker != null) await _pickMarker(_activeMarker!);
   }
 
   Future<void> _deleteNote(int id) async {
     if (!await _confirm('Delete this note?')) return;
     await Db.instance.deleteJournalEntry(id);
     await _load();
-    if (_activeMarker != null) await _pickMarker(_activeMarker!);
   }
 
   Future<void> _deleteReport(Map<String, Object?> item) async {
@@ -208,8 +240,7 @@ class _TimelineTabState extends State<TimelineTab> {
 
   @override
   Widget build(BuildContext context) {
-    final suggestions =
-        _searchCtrl.text.trim().isNotEmpty && _activeMarker == null
+    final suggestions = _searchCtrl.text.trim().isNotEmpty
         ? _knownMarkers
               .where(
                 (m) => m.toLowerCase().contains(
@@ -233,34 +264,61 @@ class _TimelineTabState extends State<TimelineTab> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (text) => setState(() {
-                    // Editing the box after a marker is picked drops back to
-                    // suggestion mode, same as the Svelte build — otherwise the
-                    // marker-timeline view stays frozen with mismatched text.
-                    if (_activeMarker != null && text != _activeMarker) {
-                      _activeMarker = null;
-                      _markerTimeline = [];
-                    }
-                  }),
-                  decoration: InputDecoration(
-                    hintText: 'Search a marker (e.g. Vitamin D)…',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _activeMarker != null
-                        ? IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: _clearSearch,
-                          )
-                        : null,
+                child: Container(
+                  decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorder)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 20, color: kMuted),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final chip in _chips)
+                              Chip(
+                                label: Text(chip.label),
+                                labelStyle: const TextStyle(color: kAccentDim, fontWeight: FontWeight.w600, fontSize: 13),
+                                avatar: chip.canonical != null ? const Icon(Icons.science_outlined, size: 15, color: kAccentDim) : null,
+                                backgroundColor: kAccentSoft,
+                                side: BorderSide.none,
+                                deleteIcon: const Icon(Icons.close, size: 15, color: kAccentDim),
+                                onDeleted: () => _removeChip(chip),
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                              ),
+                            IntrinsicWidth(
+                              child: TextField(
+                                controller: _searchCtrl,
+                                onChanged: _onSearchChanged,
+                                onSubmitted: (text) => _onSearchChanged('$text '),
+                                decoration: InputDecoration(
+                                  isCollapsed: true,
+                                  border: InputBorder.none,
+                                  filled: false,
+                                  hintText: _chips.isEmpty ? 'Search markers or notes…' : null,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_chips.isNotEmpty || _searchCtrl.text.isNotEmpty)
+                        InkWell(
+                          onTap: _clearSearch,
+                          child: const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.close, size: 18, color: kMuted)),
+                        ),
+                    ],
                   ),
                 ),
               ),
               Expanded(
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
-                    : _activeMarker != null
-                    ? _markerTimelineView()
                     : _defaultFeed(),
               ),
             ],
@@ -280,7 +338,7 @@ class _TimelineTabState extends State<TimelineTab> {
                       ListTile(
                         dense: true,
                         title: Text(s),
-                        onTap: () => _pickMarker(s),
+                        onTap: () => _commitMarkerChip(s),
                       ),
                   ],
                 ),
@@ -295,80 +353,49 @@ class _TimelineTabState extends State<TimelineTab> {
     );
   }
 
-  Widget _markerTimelineView() {
-    if (_markerTimeline.isEmpty) {
-      return const Center(
-        child: Text('No test results or notes for this marker yet.'),
+  Widget _defaultFeed() {
+    final items = _chips.isEmpty ? _feed : _feed.where(_matches).toList();
+    if (items.isEmpty) {
+      return Center(
+        child: Text(
+          _chips.isEmpty ? 'Nothing yet — upload a report or add a journal note.' : 'No matches for the current search.',
+        ),
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-      itemCount: _markerTimeline.length,
+      itemCount: items.length,
       itemBuilder: (context, i) {
-        final entry = _markerTimeline[i];
-        final isValue = entry['kind'] == 'value';
-        final config = ParserConfig.instance;
-        final outOfRange =
-            isValue &&
-            config.isOutOfRange(
-              _activeMarker!,
-              entry['value'] as double?,
-              entry['unit'] as String?,
-            );
-        final refRange = isValue
-            ? config.refRangeForUnit(
-                _activeMarker!,
-                entry['unit'] as String? ?? '',
-              )
-            : null;
-        return Card(
-          child: ListTile(
-            leading: Icon(
-              isValue ? Icons.science_outlined : Icons.edit_note,
-              size: 20,
-              color: kMuted,
-            ),
-            title: isValue
-                ? Text(
-                    '${entry['value']} ${entry['unit'] ?? ''}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: outOfRange ? kAccentDim : kText,
-                    ),
-                  )
-                : Text(
-                    entry['text'] as String,
-                    style: const TextStyle(fontSize: 14.5),
-                  ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                refRange != null
-                    ? '${formatDateIso(entry['date'] as String)} · ref $refRange'
-                    : formatDateIso(entry['date'] as String),
-                style: const TextStyle(fontSize: 12, color: kMutedLt),
-              ),
-            ),
-          ),
-        );
+        final item = items[i];
+        if (item['kind'] == 'report') return _reportCard(item);
+        return _noteCard(item);
       },
     );
   }
 
-  Widget _defaultFeed() {
-    if (_feed.isEmpty)
-      return const Center(
-        child: Text('Nothing yet — upload a report or add a journal note.'),
-      );
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-      itemCount: _feed.length,
-      itemBuilder: (context, i) {
-        final item = _feed[i];
-        if (item['kind'] == 'report') return _reportCard(item);
-        return _noteCard(item);
-      },
+  // One line per active marker chip, used as this report card's title in
+  // place of the generic "Report — N markers" summary — showing the actual
+  // value (falling back to "no value" if the marker was matched-but-unvalued
+  // in this particular report — still possible since chip matching only
+  // requires the canonical to be present, not valued).
+  Widget _matchedMarkerTitle(Map<String, Object?> item, String canonical) {
+    final markerValues = item['markerValues'] as Map<String, Object?>;
+    final cell = markerValues[canonical] as Map<String, Object?>?;
+    final value = cell?['value'] as double?;
+    final unit = cell?['unit'] as String?;
+    final config = ParserConfig.instance;
+    final outOfRange = value != null && config.isOutOfRange(canonical, value, unit);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text.rich(
+        TextSpan(children: [
+          TextSpan(text: '$canonical — ', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kText)),
+          TextSpan(
+            text: value != null ? '$value ${unit ?? ''}' : 'no value',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: outOfRange ? kAccentDim : kText),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -390,35 +417,43 @@ class _TimelineTabState extends State<TimelineTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          formatDateIso(item['date'] as String),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                        const Icon(Icons.description_outlined, size: 20, color: kMuted),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_matchedMarkerChips.isEmpty)
+                                Text.rich(
+                                  TextSpan(children: [
+                                    TextSpan(
+                                      text: 'Report — ${item['marker_count']} markers',
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kText),
+                                    ),
+                                    if (refCount > 0)
+                                      TextSpan(
+                                        text: ', $refCount out of range',
+                                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: kAccentDim),
+                                      ),
+                                  ]),
+                                )
+                              else
+                                // A marker chip is active — show its actual
+                                // value for this report (what search was
+                                // for) as the title, in place of the generic
+                                // "N markers" summary.
+                                for (final chip in _matchedMarkerChips) _matchedMarkerTitle(item, chip.canonical!),
+                              const SizedBox(height: 3),
+                              Text(
+                                formatDateIso(item['date'] as String),
+                                style: const TextStyle(fontSize: 12.5, color: kMutedLt),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Report uploaded — ${item['marker_count']} markers',
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            color: kMutedLt,
-                          ),
-                        ),
-                        if (refCount > 0) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            '$refCount out of range',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: kAccentDim,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -526,9 +561,20 @@ class _TimelineTabState extends State<TimelineTab> {
           ),
         ),
         onTap: () => _openNoteSheet(note: item),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline, size: 20, color: kAccentDim),
-          onPressed: () => _deleteNote(item['id'] as int),
+        trailing: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20, color: kAccentDim),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _deleteNote(item['id'] as int),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20, color: kMuted),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _openNoteSheet(note: item),
+            ),
+          ],
         ),
       ),
     );

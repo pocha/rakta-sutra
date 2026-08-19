@@ -48,9 +48,10 @@ class LegacyMigration {
         // Dependency order matters for the FK columns even though sqflite
         // doesn't enforce them by default — keeps this readable as "parents
         // before children" regardless.
-        for (final table in [
-          'profiles', 'reports', 'markers', 'journal_entries', 'journal_marker_index', 'reminders', 'notification_log',
-        ]) {
+        // journal_marker_index is deliberately excluded — the current
+        // schema no longer has that table (see db.dart's getTimelineFeed
+        // comment); the old app's copy of it is just skipped.
+        for (final table in ['profiles', 'reports', 'markers', 'journal_entries', 'reminders', 'notification_log']) {
           for (final row in await oldDb.query(table)) {
             await txn.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
           }

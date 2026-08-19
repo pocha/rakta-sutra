@@ -14,7 +14,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import * as chrono from 'chrono-node';
-import { parsePDF, configureParser, KEYWORD_MAP, REF_RANGES } from '../../parser-core.mjs';
+import { parsePDF, configureParser } from '../../parser-core.mjs';
 import config from '../../parser-config.json';
 import wordMap from '../../parser-config-wordmap.json';
 
@@ -32,40 +32,19 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
-// ── Free-text marker recognition — ported from mobile/src/lib/textParse.js,
-// same logic, just re-homed here since it shares KEYWORD_MAP/REF_RANGES with
-// the PDF parser and both need to live behind the same bridge (see plan §1).
-function compactNorm(text) {
-  return text.replace(/\x00/g, '').toUpperCase().replace(/AE/g, 'E').replace(/[^A-Z0-9]/g, '');
-}
-
-let keywordEntries = null;
-let canonicalCompact = null;
-function ensureIndexes() {
-  if (keywordEntries) return;
-  keywordEntries = Object.entries(KEYWORD_MAP).sort(([a], [b]) => b.length - a.length);
-  canonicalCompact = Object.keys(REF_RANGES).map(c => [c, compactNorm(c)]);
-}
-
-function extractMarkersFromText(text) {
-  ensureIndexes();
-  const compact = compactNorm(text);
-  if (!compact) return [];
-  const found = new Set();
-  for (const [canonical, compactName] of canonicalCompact) {
-    if (compact.includes(compactName)) found.add(canonical);
-  }
-  for (const [kw, canonicals] of keywordEntries) {
-    if (compact.includes(kw)) for (const c of canonicals) found.add(c);
-  }
-  return [...found];
-}
-
+// Journal entries used to also be indexed by marker keyword (extracted via
+// the same fuzzy matching the PDF parser uses) into a journal_marker_index
+// table, so Timeline search could find a note by marker name. Removed —
+// bare/ambiguous keywords (e.g. "VITAMIN" mapped to all 8 vitamin markers)
+// made that index too imprecise for search (a note mentioning only
+// "Vitamin D" also matched "Vitamin B12"). Timeline search now just matches
+// directly against the note's own text (mobile_flutter/lib/screens/
+// timeline_tab.dart), so only date extraction is needed here.
 function parseJournalText(text, refDateIso) {
   const refDate = new Date(refDateIso);
   const results = chrono.parse(text, refDate, { forwardDate: false });
   const when = results.length ? results[0].start.date() : refDate;
-  return { date: when.toISOString(), canonicals: extractMarkersFromText(text) };
+  return { date: when.toISOString() };
 }
 
 const RECURRENCE_PATTERNS = [
@@ -107,16 +86,11 @@ function parseReminderText(text, refDateIso) {
 window.trackbloodBridge = {
   // Called by ParserConfigSync after fetching a fresher parser-config.json/
   // wordmap from GitHub than the ones baked into this bundle at build time —
-  // re-runs configureParser() with the new data so parsePdf() (and the
-  // free-text parsers below, which share KEYWORD_MAP/REF_RANGES) pick it up
-  // without restarting the app. Clears the lazily-built keyword/canonical
-  // indexes too, since they're derived from the old config and would
-  // otherwise keep matching against stale data.
+  // re-runs configureParser() with the new data so parsePdf() picks it up
+  // without restarting the app.
   configureParser(requestId, configJson, wordMapJson) {
     try {
       configureParser(JSON.parse(configJson), JSON.parse(wordMapJson));
-      keywordEntries = null;
-      canonicalCompact = null;
       post(requestId, { result: {} });
     } catch (err) {
       post(requestId, { error: { name: err.name, message: err.message } });
