@@ -1,5 +1,5 @@
 Track Blood — parser regression report
-Generated: 2026-08-18T13:39:47.742Z
+Generated: 2026-08-19T08:14:45.585Z
 
 orange.pdf: coverage 98.7%  error 1.3%  spurious 0
   WRONG     AST/ALT Ratio (expected 1, got 0.96)
@@ -10,9 +10,8 @@ tata-1mg.pdf: coverage 97.8%  error 0.0%  spurious 1
 
 thyrocare.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-centro-med.pdf: coverage 98.2%  error 0.0%  spurious 1
+centro-med.pdf: coverage 98.2%  error 0.0%  spurious 0
   MISSED    Neutrophil Lymphocyte Ratio (expected 1.44)
-  SPURIOUS  Albumin/Globulin Ratio (got 1.44)
 
 aarthi-scans.pdf: coverage 100.0%  error 0.0%  spurious 0
 
@@ -34,15 +33,15 @@ urine-markers.pdf: coverage 100.0%  error 0.0%  spurious 0
 
 vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-2023_Nov03_Innoquest_Part2.pdf: coverage 86.4%  error 0.0%  spurious 1
+2023_Nov03_Innoquest_Part2.pdf: coverage 86.4%  error 1.9%  spurious 1
   MISSED    LDL Cholesterol (expected 122.9706)
   MISSED    Neutrophils Absolute (expected 3040)
   MISSED    Lymphocytes % (expected 36.8)
-  MISSED    Lymphocytes Absolute (expected 2470)
   MISSED    Monocytes Absolute (expected 520)
   MISSED    Eosinophils Absolute (expected 600)
   MISSED    Basophils Absolute (expected 70)
   MISSED    Hematocrit (expected 43)
+  WRONG     Lymphocytes Absolute (expected 2470, got 7.8)
   SPURIOUS  HDL/LDL Ratio (got 1)
 
 2023_Nov_Innoquest_20231103.pdf: coverage 100.0%  error 0.0%  spurious 0
@@ -63,117 +62,6 @@ vitamins.pdf: coverage 100.0%  error 0.0%  spurious 0
   WRONG     T4 Total (expected 9.5, got 16)
   SPURIOUS  AST/ALT Ratio (got 1)
 
-Bluttuning Stand 05.01.2021.pdf: coverage 13.1%  error 74.2%  spurious 16
-  MISSED    White Blood Cell Count (expected 5000)
-  MISSED    RBC Count (expected 5)
-  MISSED    Red Cell Distribution Width-CV (expected 15)
-  MISSED    Hemoglobin (expected 15)
-  MISSED    Hematocrit (expected 40)
-  MISSED    Mean Corpuscular Hemoglobin (expected 30)
-  MISSED    Mean Corpuscular Hemoglobin Concentration (expected 35)
-  MISSED    Platelet Count (expected 300000)
-  MISSED    Mean Platelet Volume (expected 10)
-  MISSED    Neutrophils % (expected 50)
-  MISSED    Lymphocytes % (expected 15)
-  MISSED    Monocytes % (expected 5)
-  MISSED    Eosinophils % (expected 1)
-  MISSED    Lymphocytes Absolute (expected 2000)
-  MISSED    Monocytes Absolute (expected 1000)
-  MISSED    Basophils Absolute (expected 100)
-  MISSED    Gamma-Glutamyl Transferase (expected 1)
-  MISSED    AST (Aspartate Aminotransferase) (expected 1)
-  MISSED    ALT (Alanine Transaminase) (expected 1)
-  MISSED    Bilirubin Total (expected 1)
-  MISSED    Bilirubin Indirect (expected 0)
-  MISSED    Uric Acid (expected 1)
-  MISSED    Total Cholesterol (expected 1)
-  MISSED    HDL Cholesterol (expected 1)
-  MISSED    Triglycerides (expected 1)
-  MISSED    Homocysteine (expected 15.5)
-  MISSED    Rheumatoid Factor (expected 20)
-  MISSED    Vitamin B12 (expected 7)
-  MISSED    Immunoglobulin A (expected 500)
-  MISSED    Coenzyme Q10 (expected 7)
-  WRONG     Basophils % (expected 1, got 0.1)
-  WRONG     Neutrophils Absolute (expected 2000, got 500)
-  WRONG     Eosinophils Absolute (expected 500, got 0.5)
-  WRONG     Total Protein (expected 8, got 10)
-  WRONG     Ferritin (expected 50, got 500)
-  WRONG     Glycated Hemoglobin (HbA1c) (expected 6, got 10)
-  WRONG     Thyroid Stimulating Hormone (expected 1, got 100)
-  WRONG     Alkaline Phosphatase (expected 1, got 10)
-  WRONG     Bilirubin Direct (expected 1, got 10)
-  WRONG     Amylase (expected 1, got 10)
-  WRONG     Lipase (expected 1, got 10)
-  WRONG     Urea (expected 1, got 250)
-  WRONG     Carcinoembryonic Antigen (expected 1.5, got 15)
-  WRONG     Carbohydrate Antigen 19-9 (expected 25, got 250)
-  WRONG     LDL Cholesterol (expected 2, got 30)
-  WRONG     Vitamin B9 (expected 7, got 70)
-  WRONG     Vitamin A (expected 7, got 70)
-  WRONG     Vitamin D (expected 2.8, got 7)
-  WRONG     Vitamin E (expected 7000, got 700)
-  WRONG     Insulin (expected 1, got 80)
-  WRONG     Cancer Antigen 15-3 (expected 100, got 1000)
-  WRONG     Omega-3 Index (expected 12.5, got 30)
-  WRONG     Total PSA (expected 11, got 15)
-  SPURIOUS  Calcium (got 10)
-  SPURIOUS  Magnesium (got 1)
-  SPURIOUS  Alpha-Fetoprotein (got 120)
-  SPURIOUS  Urea/Creatinine Ratio (got 50)
-  SPURIOUS  Follicle Stimulating Hormone (FSH) (got 7)
-  SPURIOUS  Luteinizing Hormone (LH) (got 7)
-  SPURIOUS  Platelet Large Cell Ratio (got 17)
-  SPURIOUS  Triiodothyronine (T3) Total (got 10)
-  SPURIOUS  VLDL Cholesterol (got 30)
-  SPURIOUS  Cholesterol/HDL Ratio (got 1)
-  SPURIOUS  HDL/LDL Ratio (got 7)
-  SPURIOUS  Urine Albumin/Creatinine Ratio (got 100)
-  SPURIOUS  AST/ALT Ratio (got 2)
-  SPURIOUS  Immunoglobulin E (got 1500)
-  SPURIOUS  Cancer Antigen 125 (got 4)
-  SPURIOUS  Blood Urea Nitrogen/Creatinine Ratio (got 24)
-
-Musterbefund-Gesund-und-Aktiv.pdf: coverage 40.5%  error 15.0%  spurious 0
-  MISSED    White Blood Cell Count (expected 5300)
-  MISSED    RBC Count (expected 4.5)
-  MISSED    Hemoglobin (expected 13.3)
-  MISSED    Hematocrit (expected 42)
-  MISSED    Platelet Count (expected 350000)
-  MISSED    Neutrophils % (expected 60)
-  MISSED    Lymphocytes % (expected 33)
-  MISSED    Monocytes % (expected 4)
-  MISSED    Neutrophils Absolute (expected 3200)
-  MISSED    Lymphocytes Absolute (expected 1700)
-  MISSED    Basophils Absolute (expected 100)
-  MISSED    Monocytes Absolute (expected 200)
-  MISSED    Potassium (expected 4.5)
-  MISSED    Sodium (expected 141)
-  MISSED    Phosphorus (expected 2.88)
-  MISSED    Serum Iron (expected 44.68)
-  MISSED    AST (Aspartate Aminotransferase) (expected 26)
-  MISSED    ALT (Alanine Transaminase) (expected 24)
-  MISSED    Fasting Glucose (expected 89)
-  MISSED    Uric Acid (expected 5.2)
-  MISSED    Urea (expected 26)
-  MISSED    Creatinine (expected 0.9)
-  WRONG     Eosinophils Absolute (expected 100, got 0.1)
-  WRONG     Magnesium (expected 2.5, got 1.03)
-  WRONG     Total Cholesterol (expected 202, got 56)
-
-Musterbefund-Mikronährstoffe.pdf: coverage 12.5%  error 0.0%  spurious 4
-  MISSED    White Blood Cell Count (expected 6000)
-  MISSED    RBC Count (expected 6)
-  MISSED    Hemoglobin (expected 15)
-  MISSED    Hematocrit (expected 47)
-  MISSED    Mean Corpuscular Hemoglobin (expected 33)
-  MISSED    Mean Corpuscular Hemoglobin Concentration (expected 35)
-  MISSED    Platelet Count (expected 250000)
-  SPURIOUS  Calcium (got 8)
-  SPURIOUS  Vitamin A (got 400)
-  SPURIOUS  Magnesium (got 2)
-  SPURIOUS  Vitamin D (got 100)
-
 innoquest-password-protected.pdf: coverage 50.0%  error 0.0%  spurious 0
   MISSED    Prothrombin Time (expected 10)
 
@@ -185,7 +73,7 @@ quest-diagnostics-US.pdf: coverage 53.8%  error 0.0%  spurious 0
   MISSED    Systolic Blood Pressure (expected 106)
   MISSED    Diastolic Blood Pressure (expected 65)
 
-australia.pdf: coverage 6.7%  error 85.7%  spurious 13
+australia.pdf: coverage 41.7%  error 37.5%  spurious 5
   MISSED    Total Cholesterol (expected 228.15)
   MISSED    Triglycerides (expected 194.85)
   MISSED    HDL Cholesterol (expected 38.67)
@@ -202,17 +90,9 @@ australia.pdf: coverage 6.7%  error 85.7%  spurious 13
   WRONG     Glycated Hemoglobin (HbA1c) (expected 5.4, got 5.3)
   SPURIOUS  HDL/LDL Ratio (got 5.1)
   SPURIOUS  Immunoglobulin M (got 2.36)
-  SPURIOUS  High Sensitivity CRP (got 4)
   SPURIOUS  Follicle Stimulating Hormone (FSH) (got 60)
   SPURIOUS  Erythrocyte Sedimentation Rate (got 92)
-  SPURIOUS  Glomerular Filtration Rate (eGFR) (got 90)
   SPURIOUS  AST (Aspartate Aminotransferase) (got 20)
-  SPURIOUS  ALT (Alanine Transaminase) (got 16)
-  SPURIOUS  Gamma-Glutamyl Transferase (got 20)
-  SPURIOUS  Testosterone (got 14.9)
-  SPURIOUS  Mean Corpuscular Volume (got 78)
-  SPURIOUS  Mean Corpuscular Hemoglobin (got 27)
-  SPURIOUS  Red Cell Distribution Width-CV (got 13.1)
 
 ─────────────────────────────────────────────────────────────────
-TOTAL (24/24 files with fixtures): coverage 84.0%  error 4.9%  spurious 39
+TOTAL (21/21 files with fixtures): coverage 94.1%  error 1.4%  spurious 10

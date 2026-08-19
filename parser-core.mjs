@@ -86,37 +86,13 @@ export function inValueRange(canonical, v) {
   return v >= lim[0] && v <= lim[1];
 }
 
-function unitScale(units) {
-  if (!units) return 1;
-  const u = units.replace(/\s/g, '').toUpperCase();
-  // Exponent notation varies: a real superscript character ("10³"), a caret
-  // ("10^3"), or — for the ×10⁹ case specifically — a superscript digit
-  // rendered as its own separate PDF text item and reattached by the units
-  // accumulator above ("10" immediately followed by a bare "9").
-  const m = u.match(/10\^?([³369⁶⁹])/);
-  if (!m) return 1;
-  const exp = { '3':3, '³':3, '6':6, '⁶':6, '9':9, '⁹':9 }[m[1]];
-  // Our default cell-count unit is cells/µL. "×10ⁿ/L" — hematology's
-  // SI-preferred notation, and the form these superscript-exponent values
-  // above take once the digit above the line is correctly reattached — is
-  // the exact same magnitude as "×10ⁿ⁻⁶/µL" (1 L = 10⁶ µL), so the exponent
-  // alone isn't enough; the denominator has to be checked to know which
-  // scale is actually meant. Match bare "/L" specifically — the slash
-  // immediately followed by L, nothing in between — so any micro-prefixed
-  // form (/uL, /µL using the micro sign, /μL using Greek mu — labs are
-  // inconsistent about which character they use) still correctly falls
-  // through as "not per-liter" without needing to enumerate every spelling.
-  const perLiter = /\/L$/.test(u);
-  return Math.pow(10, perLiter ? exp - 6 : exp);
-}
-
-// Per-marker unit conversion — distinct from unitScale() above, which only
-// handles the generic "10^3"/"10^6" cell-count multiplier notation shared
-// across cell-count markers. This instead converts a value printed in an
-// alternate unit (e.g. T3 as "ng/dL" when our default/tracked unit is
-// "ng/mL") into the marker's default unit, so VALUE_LIMITS plausibility
-// checks — and everything stored/displayed — are always in that one unit.
-// A marker with no config.units entry (the common case) is unaffected.
+// Per-marker unit conversion — converts a value printed in an alternate
+// unit (e.g. T3 as "ng/dL" when our default/tracked unit is "ng/mL", or a
+// cell count printed as a raw absolute "/mm³" when the marker's default is
+// compact "x10^3/uL" notation) into the marker's default unit, so
+// VALUE_LIMITS plausibility checks — and everything stored/displayed — are
+// always in that one unit. A marker with no config.units entry (the common
+// case) is unaffected.
 //
 // Returns null — not 1 — when the captured unit isn't one this marker's
 // own `units` table recognizes at all, deliberately distinct from "found
@@ -134,13 +110,28 @@ export function unitsFor(canonical) {
   return MARKER_UNITS[canonical] ?? [];
 }
 
+// Normalizes cosmetic spelling variance before substring matching — real
+// superscript digits ("10³") vs caret notation ("10^3"), the micro sign
+// (µ, U+00B5) vs Greek mu (μ, U+03BC) which PDFs use inconsistently, and
+// incidental whitespace differences ("X 10³ / μL" vs "X10³/μL"). This does
+// NOT compute any scale/magnitude — it only makes the same printed unit
+// match regardless of which glyphs a given lab's PDF export happened to use.
+const SUPERSCRIPT_MAP = { '³': '3', '⁶': '6', '⁹': '9' };
+function normalizeUnitText(s) {
+  return s
+    .replace(/[³⁶⁹]/g, (c) => '^' + SUPERSCRIPT_MAP[c])
+    .replace(/µ/g, 'μ')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
 export function markerUnitScale(canonical, unitsText) {
   if (!unitsText || !canonical) return null;
   const list = MARKER_UNITS[canonical];
   if (!list) return null;
-  const u = unitsText.toLowerCase();
+  const u = normalizeUnitText(unitsText);
   for (const { unit, scale } of list) {
-    if (u.includes(unit.toLowerCase())) return scale;
+    if (u.includes(normalizeUnitText(unit))) return scale;
   }
   return null;
 }
@@ -158,17 +149,25 @@ export function matchedUnitLabel(canonical, unitsText) {
   if (!unitsText || !canonical) return null;
   const list = MARKER_UNITS[canonical];
   if (!list) return null;
-  const u = unitsText.toLowerCase();
+  const u = normalizeUnitText(unitsText);
   for (const { unit } of list) {
-    if (u.includes(unit.toLowerCase())) return unit;
+    if (u.includes(normalizeUnitText(unit))) return unit;
   }
   return null;
 }
 
 function scaleRef(ref, scale) {
   if (!ref || scale === 1) return ref;
-  // Scale a "lo-hi" range string: "150-410" → "150000-410000"
-  return ref.replace(/(\d+\.?\d*)/g, n => String(parseFloat(n) * scale));
+  // Only scale the leading numeric range/comparison — REF_RANGES strings
+  // are "X-Y UNIT" or "< X UNIT" — a blanket replace across the whole
+  // string would also rewrite digits embedded in the trailing unit label
+  // itself (e.g. the "3" in "x10^3/uL"), corrupting it into garbage like
+  // "4000-10000 x10000^3000/uL".
+  const m = ref.match(/^([<>≤≥]?=?\s*\d+\.?\d*(?:\s*[-–]\s*\d+\.?\d*)?)/);
+  if (!m) return ref;
+  const prefix = m[1];
+  const scaledPrefix = prefix.replace(/(\d+\.?\d*)/g, n => String(parseFloat(n) * scale));
+  return scaledPrefix + ref.slice(prefix.length);
 }
 
 // Converts a value from one of a marker's known printed units to another,
@@ -604,7 +603,7 @@ function reconstructRefRange(items) {
 // "/" so ordinary words (marker names, "Total", row labels) never qualify;
 // only used as a fallback when there's no colMap.units to position-filter
 // against, so it's restricted to items appearing after the value itself.
-const UNIT_TOKEN_RE = /^[a-zA-Zμµ][a-zA-Zμµ%0-9]*\/[a-zA-Zμµ][a-zA-Zμµ0-9]*$/;
+const UNIT_TOKEN_RE = /^[a-zA-Zμµ][a-zA-Zμµ%0-9]*\/[a-zA-Zμµ][a-zA-Zμµ0-9.]*$/;
 
 function scanRowForValueRefUnits(items, colMap) {
   const hasValueCol = !!colMap && colMap.value !== undefined;
@@ -709,17 +708,14 @@ function lookAheadValue(allLines, i, canonical, colMap, extracted) {
     const next = allLines[j];
     if (next.pageBreak) break;
     let { value, ref, units } = scanRowForValueRefUnits(next.items, colMap);
-    // `value`/`ref` returned below stay in the marker's NATIVE unit (only
-    // ×10ⁿ notation-normalized) — `canonicalValue`, additionally scaled
-    // into the marker's fixed default unit, exists only for the
-    // plausibility check here, same native/canonical split as tryExtractLine.
-    const notationScale = unitScale(units);
-    const nativeValue = value !== null ? value * notationScale : null;
-    const nativeRef = notationScale !== 1 ? scaleRef(ref, notationScale) : ref;
+    // `value`/`ref` stay in the marker's NATIVE (as-printed) unit —
+    // `canonicalValue`, converted into the marker's fixed default unit via
+    // the per-marker units table, exists only for the plausibility check
+    // here, same native/canonical split as tryExtractLine.
     const mScale = markerUnitScale(canonical, units) ?? 1;
-    const canonicalValue = nativeValue !== null && mScale !== 1 ? nativeValue * mScale : nativeValue;
+    const canonicalValue = value !== null && mScale !== 1 ? value * mScale : value;
     if (canonicalValue !== null && inValueRange(canonical, canonicalValue)) {
-      return { value: nativeValue, ref: nativeRef, units };
+      return { value, ref, units };
     }
     // Stop if next line matches an unextracted marker
     const nm = matchLine(nameItemsOf(next.items, colMap).map(it => it.text).join(' '));
@@ -870,19 +866,17 @@ function tryExtractLine(line, i, allLines, colMap, extracted, unvalued) {
   const lm = matchLine(nameText);
   if (!lm) return;
 
-  // `value`/`ref`/`units` below stay in the marker's NATIVE unit (as
-  // printed, only ×10ⁿ notation-normalized) throughout this function — this
-  // is what ultimately gets returned/stored. `canonicalValue`, additionally
-  // converted into the marker's fixed default unit via markerUnitScale,
-  // exists ONLY for the plausibility check and disambiguation below —
-  // VALUE_LIMITS/REF_RANGES are defined in that default unit, so a value
-  // still in an alternate as-printed unit (e.g. T3 as "97.33 ng/dL") looks
-  // physiologically implausible against limits meant for a different unit
-  // and would otherwise be wrongly discarded.
+  // `value`/`ref`/`units` below stay in the marker's NATIVE (as-printed)
+  // unit throughout this function — this is what ultimately gets
+  // returned/stored. `canonicalValue`, additionally converted into the
+  // marker's fixed default unit via markerUnitScale, exists ONLY for the
+  // plausibility check and disambiguation below — VALUE_LIMITS/REF_RANGES
+  // are defined in that default unit, so a value still in an alternate
+  // as-printed unit (e.g. T3 as "97.33 ng/dL", or a cell count as "3663
+  // /mm³" against a "x10^3/uL"-default marker) looks physiologically
+  // implausible against limits meant for a different unit and would
+  // otherwise be wrongly discarded.
   let { value, ref, units } = extractValueAndRef(line.items, '', colMap);
-  const scale = unitScale(units);
-  if (value !== null) value = value * scale;
-  if (scale !== 1) ref = scaleRef(ref, scale);
   let canonical = lm.canonical ?? disambiguate(lm.candidates, ref, value, units);
 
   let mScale = canonical ? (markerUnitScale(canonical, units) ?? 1) : 1;
