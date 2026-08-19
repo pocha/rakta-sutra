@@ -54,6 +54,15 @@ class Db {
       _migrated = true;
     }
 
+    // Additive column on an existing install — CREATE TABLE's own "password
+    // TEXT" only takes effect for a fresh database. sqflite has no "ADD
+    // COLUMN IF NOT EXISTS", so check PRAGMA table_info first rather than
+    // relying on catching a "duplicate column" error.
+    final reportCols = await _db.rawQuery('PRAGMA table_info(reports)');
+    if (!reportCols.any((c) => c['name'] == 'password')) {
+      await _db.execute('ALTER TABLE reports ADD COLUMN password TEXT');
+    }
+
     final profileCount = Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM profiles')) ?? 0;
     if (profileCount == 0) {
       await _db.insert('profiles', {'name': 'You'});
@@ -72,6 +81,7 @@ class Db {
       report_date TEXT NOT NULL,
       file_name TEXT NOT NULL,
       file_path TEXT NOT NULL,
+      password TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS markers (
@@ -130,11 +140,14 @@ class Db {
   // extractedMarkers: canonical -> {value, unit}. unvaluedCanonicals: matched
   // name, no plausible value — inserted as {value: null, unit: null}
   // placeholder rows so the UI can show a blank, fillable row for them.
+  // password is stored so a password-protected PDF's Raw view (and, later,
+  // reparseAll) can reopen/reparse it without prompting the user again —
+  // never sent anywhere, stays local like everything else.
   Future<int> addReport(int profileId, String reportDate, String fileName, String filePath,
-      Map<String, ParsedMarker> extractedMarkers, List<String> unvaluedCanonicals) async {
+      Map<String, ParsedMarker> extractedMarkers, List<String> unvaluedCanonicals, {String? password}) async {
     return _db.transaction((txn) async {
       final reportId = await txn.insert('reports', {
-        'profile_id': profileId, 'report_date': reportDate, 'file_name': fileName, 'file_path': filePath,
+        'profile_id': profileId, 'report_date': reportDate, 'file_name': fileName, 'file_path': filePath, 'password': password,
       });
       for (final e in extractedMarkers.entries) {
         await txn.insert('markers', {'report_id': reportId, 'canonical': e.key, 'value': e.value.value, 'unit': e.value.unit});
@@ -175,6 +188,20 @@ class Db {
 
   Future<List<Map<String, Object?>>> getReportMarkers(int reportId) =>
       _db.query('markers', where: 'report_id = ?', whereArgs: [reportId], orderBy: 'canonical');
+
+  // Registers a marker name the parser doesn't know about (not in
+  // parser-config.json) as a blank, editable row for this report — same
+  // {value: null, unit: null} placeholder shape addReport() already uses
+  // for matched-but-unvalued canonicals. Once inserted it flows through
+  // getConsolidatedReportData()'s profile-wide union like any other
+  // canonical, so it shows up as a normal fillable row everywhere (every
+  // report, the unit picker, MarkerDetail's chart) with no special-casing —
+  // every ParserConfig lookup already defaults to "no data" for an unknown
+  // canonical rather than erroring.
+  Future<void> registerCustomMarker(int reportId, String canonical) => _db.insert(
+        'markers', {'report_id': reportId, 'canonical': canonical, 'value': null, 'unit': null},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
 
   Future<void> upsertMarker(int reportId, String canonical, double value, String? unit) => _db.rawInsert(
         '''INSERT INTO markers (report_id, canonical, value, unit, manually_edited) VALUES (?, ?, ?, ?, 1)
@@ -296,7 +323,7 @@ class Db {
   // Feeds the Report tab's swipeable value+unit column: canonical -> reportId -> {value, unit}.
   Future<(List<Map<String, Object?>>, Map<String, Map<int, Map<String, Object?>>>)> getConsolidatedReportData(int profileId) async {
     final reports = await _db.rawQuery(
-      'SELECT id, report_date as date, file_name, file_path FROM reports WHERE profile_id = ? ORDER BY report_date DESC', [profileId],
+      'SELECT id, report_date as date, file_name, file_path, password FROM reports WHERE profile_id = ? ORDER BY report_date DESC', [profileId],
     );
     final markerRows = await _db.rawQuery(
       'SELECT m.report_id, m.canonical, m.value, m.unit FROM markers m JOIN reports r ON r.id = m.report_id WHERE r.profile_id = ?',

@@ -44,6 +44,12 @@ class _ReportTabState extends State<ReportTab> {
   bool _rawPaneVisited = false;
   String? _status;
 
+  // Search bar lives inside the Extracted sub-tab's own widget, not in a
+  // modal — IndexedStack already keeps that whole subtree mounted (just
+  // hidden) while Raw is showing, so the query survives switching to Raw
+  // and back for free, no special persistence plumbing needed.
+  final _searchCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +60,12 @@ class _ReportTabState extends State<ReportTab> {
   void didUpdateWidget(covariant ReportTab old) {
     super.didUpdateWidget(old);
     if (old.profileId != widget.profileId) _refresh();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -70,8 +82,13 @@ class _ReportTabState extends State<ReportTab> {
 
   Map<String, Object?>? get _currentReport => _reports.isEmpty ? null : _reports[_reportIndex];
 
+  // Every marker the parser knows about, plus any custom (unrecognized)
+  // marker this profile has already registered — shown as a row
+  // regardless of whether it has a value for the currently-viewed report,
+  // so "the marker exists but wasn't extracted from this PDF" is just a
+  // blank, tappable row rather than a separate add-flow.
   List<(String?, String?)> get _groupedRows {
-    final present = _valuesByCanonical.keys.toSet();
+    final present = ParserConfig.instance.refRanges.keys.toSet().union(_valuesByCanonical.keys.toSet());
     final rows = <(String?, String?)>[]; // (groupLabel, canonical) — one non-null
     final grouped = <String>{};
     for (final g in ParserConfig.instance.markerGroups) {
@@ -108,8 +125,9 @@ class _ReportTabState extends State<ReportTab> {
         try {
           setState(() => _status = 'Reading "${file.name}"…');
           final bytes = await file.readAsBytes();
-          final parsed = await _parseWithPasswordRetry(bytes, file.name);
-          if (parsed == null) continue; // user cancelled the password prompt
+          final result = await _parseWithPasswordRetry(bytes, file.name);
+          if (result == null) continue; // user cancelled the password prompt
+          final (parsed, password) = result;
 
           var reportDate = parsed.date;
           if (parsed.dateAmbiguous && mounted) {
@@ -129,7 +147,10 @@ class _ReportTabState extends State<ReportTab> {
           seenDates.add(reportDate);
 
           final path = await ReportFiles.save(widget.profileId!, file.name, bytes);
-          lastUploadedId = await Db.instance.addReport(widget.profileId!, reportDate, file.name, path, parsed.extracted, parsed.unvaluedCanonicals);
+          lastUploadedId = await Db.instance.addReport(
+            widget.profileId!, reportDate, file.name, path, parsed.extracted, parsed.unvaluedCanonicals,
+            password: password,
+          );
         } catch (err) {
           failed.add('${file.name}: $err');
         }
@@ -153,12 +174,16 @@ class _ReportTabState extends State<ReportTab> {
   // Retries with a freshly-prompted password on PasswordRequiredException,
   // as many times as the user is willing — mirrors ReportTab.svelte's
   // parseWithPasswordRetry. Returns null if the user cancels the prompt.
-  Future<ParsePdfResult?> _parseWithPasswordRetry(List<int> bytes, String fileName) async {
+  // The resolved password (null for an unprotected PDF) is returned
+  // alongside the parse result so the caller can store it — needed to
+  // reopen the Raw PDF view (and, later, reparseAll) without re-prompting.
+  Future<(ParsePdfResult, String?)?> _parseWithPasswordRetry(List<int> bytes, String fileName) async {
     String? password;
     final base64 = _bytesToBase64(bytes);
     for (;;) {
       try {
-        return await ParserBridge.instance.parsePdf(base64, password: password);
+        final result = await ParserBridge.instance.parsePdf(base64, password: password);
+        return (result, password);
       } on PasswordRequiredException {
         if (!mounted) return null;
         password = await _promptPassword(fileName);
@@ -208,6 +233,42 @@ class _ReportTabState extends State<ReportTab> {
       ]),
     );
     return result ?? false;
+  }
+
+  // Markers never seen in ANY report for this profile — the ones actually
+  // worth offering an "add new" flow for. A canonical that already appears
+  // in some other report (but not this one) already shows up as a blank,
+  // fillable row in the filtered list below, same as a regular unvalued
+  // marker; no separate add-flow needed for that case.
+  // Only reachable when the search query matched nothing in _groupedRows
+  // (every known marker, so this really is unrecognized). Registers the
+  // typed name verbatim — it can't be renamed afterward, and future PDF
+  // imports still won't extract it automatically, since parser-core.mjs's
+  // keyword table has no entry for it — but it becomes a normal row with
+  // full value/unit-edit and chart support from here on.
+  Future<void> _confirmAddCustomMarker(String name) async {
+    final reportId = _currentReport?['id'] as int?;
+    if (reportId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Add unrecognized marker?'),
+        content: Text(
+          '"$name" isn\'t a marker Track Blood knows how to extract automatically. '
+          "It'll be added to your list so you can enter its value by hand and see it "
+          "on a chart, but future report imports won't fill it in for you, and its "
+          'name can\'t be changed later.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Add')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await Db.instance.registerCustomMarker(reportId, name);
+    setState(() => _searchCtrl.clear());
+    await _refresh();
   }
 
   // Timeline's "jump to this report" sets AppState.jumpToReportId — consumed
@@ -269,61 +330,96 @@ class _ReportTabState extends State<ReportTab> {
         Expanded(
           child: IndexedStack(index: _subTab, children: [
             _extractedTable(report),
-            if (_rawPaneVisited) _RawPdfPane(filePath: report['file_path'] as String) else const SizedBox.shrink(),
+            if (_rawPaneVisited)
+              _RawPdfPane(filePath: report['file_path'] as String, password: report['password'] as String?)
+            else
+              const SizedBox.shrink(),
           ]),
         ),
       ]),
     );
   }
 
-  // ListView.builder, not a plain ListView(children: [...]) — the profile-
-  // wide marker union (every canonical ever seen across every report, not
-  // just this one) can run into the hundreds, and building that many
-  // ValueCells (each owning a TextEditingController) eagerly blocked the
-  // main thread badly enough to freeze the frame pipeline on scroll.
+  // Search filters the profile-wide marker union shown below — starts
+  // matching from the first character (unlike Timeline's 3-char minimum),
+  // since this list (every known marker, now that _groupedRows is
+  // profile-union ∪ ParserConfig's full canonical set) is at most a couple
+  // hundred entries, not a free-text corpus. If a query matches nothing at
+  // all, that's the signal the marker isn't one Track Blood recognizes —
+  // the only remaining option is registering it as a custom marker.
+  // ListView.builder, not a plain ListView(children: [...]) for the
+  // unfiltered (no search query) case — the full marker list can run into
+  // the hundreds, and building that many ValueCells (each owning a
+  // TextEditingController) eagerly blocked the main thread badly enough to
+  // freeze the frame pipeline on scroll. A filtered result set is small
+  // enough to build eagerly without that risk.
   Widget _extractedTable(Map<String, Object?> report) {
     final reportId = report['id'] as int;
-    final rows = _groupedRows;
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 96),
-      itemCount: rows.length,
-      itemBuilder: (context, i) {
-        final row = rows[i];
-        if (row.$1 != null) {
-          return Container(
-            width: double.infinity,
-            color: kBg,
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
-            child: Text(row.$1!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5, color: kMuted)),
-          );
-        }
-        return Column(children: [
-          _MarkerRow(
-            canonical: row.$2!,
-            cell: _valuesByCanonical[row.$2]?[reportId],
-            reportId: reportId,
-            profileId: widget.profileId!,
-            onSaved: _refresh,
+    final query = _searchCtrl.text.trim();
+    final rows = query.isEmpty
+        ? _groupedRows
+        : _groupedRows.where((r) => r.$2 != null && r.$2!.toLowerCase().contains(query.toLowerCase())).toList();
+
+    return Column(children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+        child: TextField(
+          controller: _searchCtrl,
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(
+            hintText: 'Search a marker…',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: query.isNotEmpty ? IconButton(icon: const Icon(Icons.close), onPressed: () => setState(_searchCtrl.clear)) : null,
           ),
-          const Divider(height: 1, indent: 16),
-        ]);
-      },
-    );
+        ),
+      ),
+      Expanded(
+        child: rows.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('No marker matches "$query".', style: const TextStyle(color: kMuted), textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add missing marker'),
+                      onPressed: () => _confirmAddCustomMarker(query),
+                    ),
+                  ]),
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.only(bottom: 96),
+                itemCount: rows.length,
+                itemBuilder: (context, i) {
+                  final row = rows[i];
+                  if (row.$1 != null) {
+                    return Container(
+                      width: double.infinity,
+                      color: kBg,
+                      padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+                      child: Text(row.$1!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5, color: kAccent)),
+                    );
+                  }
+                  return Column(children: [
+                    _MarkerRow(
+                      canonical: row.$2!,
+                      cell: _valuesByCanonical[row.$2]?[reportId],
+                      reportId: reportId,
+                      profileId: widget.profileId!,
+                      onSaved: _refresh,
+                    ),
+                    const Divider(height: 1, indent: 16),
+                  ]);
+                },
+              ),
+      ),
+    ]);
   }
 
   Widget _fabButton() {
-    return FloatingActionButton(
-      onPressed: () => showModalBottomSheet(
-        context: context,
-        builder: (context) => SafeArea(
-          child: Wrap(children: [
-            ListTile(leading: const Icon(Icons.upload_file), title: const Text('Upload report'), onTap: () { Navigator.pop(context); _pickAndUpload(); }),
-            ListTile(leading: const Icon(Icons.visibility), title: const Text('View raw PDF'), onTap: () { Navigator.pop(context); setState(() { _subTab = 1; _rawPaneVisited = true; }); }),
-          ]),
-        ),
-      ),
-      child: const Icon(Icons.add),
-    );
+    return FloatingActionButton(onPressed: _pickAndUpload, child: const Icon(Icons.add));
   }
 
   String _bytesToBase64(List<int> bytes) => base64Encode(bytes);
@@ -397,7 +493,8 @@ class _MarkerRowState extends State<_MarkerRow> {
 
 class _RawPdfPane extends StatefulWidget {
   final String filePath;
-  const _RawPdfPane({required this.filePath});
+  final String? password;
+  const _RawPdfPane({required this.filePath, this.password});
 
   @override
   State<_RawPdfPane> createState() => _RawPdfPaneState();
@@ -426,7 +523,14 @@ class _RawPdfPaneState extends State<_RawPdfPane> {
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
         if (snap.hasError) return const Center(child: Text("Couldn't load this report's original PDF."));
-        return PDFView(filePath: snap.data!, enableSwipe: true, swipeHorizontal: false, autoSpacing: true, pageFling: true);
+        return PDFView(
+          filePath: snap.data!,
+          password: widget.password,
+          enableSwipe: true,
+          swipeHorizontal: false,
+          autoSpacing: true,
+          pageFling: true,
+        );
       },
     );
   }

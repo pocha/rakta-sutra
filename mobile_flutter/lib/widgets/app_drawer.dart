@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../screens/backup_screen.dart';
 import '../screens/notifications_screen.dart';
+import '../services/pdf_export.dart';
 import '../state/app_state.dart';
+import '../theme.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({super.key});
@@ -13,7 +15,28 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   bool _addingProfile = false;
+  bool _sharing = false;
   final _nameCtrl = TextEditingController();
+
+  // Shares before popping the Drawer (rather than popping first) so this
+  // State stays mounted for the spinner and, on failure, so its own
+  // ScaffoldMessenger context is still valid to show the error in.
+  Future<void> _shareReport(AppState appState) async {
+    final profileId = appState.activeProfileId;
+    if (profileId == null || _sharing) return;
+    setState(() => _sharing = true);
+    try {
+      final name = appState.profiles.firstWhere((p) => p['id'] == profileId, orElse: () => const {})['name'] as String?;
+      await PdfExportService.shareConsolidatedReport(profileId, name);
+      if (mounted) Navigator.pop(context);
+    } catch (err) {
+      if (mounted) {
+        setState(() => _sharing = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Couldn't generate report: $err")));
+      }
+      return;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +81,23 @@ class _AppDrawerState extends State<AppDrawer> {
               )
             else
               ListTile(leading: const Icon(Icons.add), title: const Text('Add Profile'), onTap: () => setState(() => _addingProfile = true)),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              child: Material(
+                color: kAccentSoft,
+                borderRadius: BorderRadius.circular(10),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  leading: _sharing
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kAccent))
+                      : const Icon(Icons.ios_share, color: kAccent),
+                  title: const Text('Share Report', style: TextStyle(color: kAccentDim, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Consolidated PDF of all your markers', style: TextStyle(fontSize: 11.5)),
+                  onTap: () => _shareReport(appState),
+                ),
+              ),
+            ),
             const Divider(),
             ListTile(
               leading: const Icon(Icons.notifications_outlined),
