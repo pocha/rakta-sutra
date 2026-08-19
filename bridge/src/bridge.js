@@ -105,6 +105,23 @@ function parseReminderText(text, refDateIso) {
 }
 
 window.trackbloodBridge = {
+  // Called by ParserConfigSync after fetching a fresher parser-config.json/
+  // wordmap from GitHub than the ones baked into this bundle at build time —
+  // re-runs configureParser() with the new data so parsePdf() (and the
+  // free-text parsers below, which share KEYWORD_MAP/REF_RANGES) pick it up
+  // without restarting the app. Clears the lazily-built keyword/canonical
+  // indexes too, since they're derived from the old config and would
+  // otherwise keep matching against stale data.
+  configureParser(requestId, configJson, wordMapJson) {
+    try {
+      configureParser(JSON.parse(configJson), JSON.parse(wordMapJson));
+      keywordEntries = null;
+      canonicalCompact = null;
+      post(requestId, { result: {} });
+    } catch (err) {
+      post(requestId, { error: { name: err.name, message: err.message } });
+    }
+  },
   async parsePdf(requestId, base64, password) {
     try {
       const result = await parsePDF(base64ToArrayBuffer(base64), pdfjsLib, password || undefined);

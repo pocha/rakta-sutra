@@ -178,6 +178,13 @@ class ParserBridge {
     return completer.future;
   }
 
+  // Re-runs the JS engine's configureParser() with freshly-synced data
+  // (see ParserConfigSync) — config/wordMap are passed as JSON text (not
+  // raw maps) since _argsLiteral just needs valid JSON-encodable values,
+  // and the bridge re-parses each with JSON.parse on the other side.
+  Future<void> configureParser(Map<String, dynamic> config, Map<String, dynamic> wordMap) =>
+      _call('configureParser', [jsonEncode(config), jsonEncode(wordMap)]);
+
   Future<ParsePdfResult> parsePdf(String base64Pdf, {String? password}) async {
     final result = await _call('parsePdf', [base64Pdf, password]);
     return ParsePdfResult.fromJson(result!);

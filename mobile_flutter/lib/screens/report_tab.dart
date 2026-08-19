@@ -82,13 +82,19 @@ class _ReportTabState extends State<ReportTab> {
 
   Map<String, Object?>? get _currentReport => _reports.isEmpty ? null : _reports[_reportIndex];
 
-  // Every marker the parser knows about, plus any custom (unrecognized)
-  // marker this profile has already registered — shown as a row
-  // regardless of whether it has a value for the currently-viewed report,
-  // so "the marker exists but wasn't extracted from this PDF" is just a
-  // blank, tappable row rather than a separate add-flow.
-  List<(String?, String?)> get _groupedRows {
-    final present = ParserConfig.instance.refRanges.keys.toSet().union(_valuesByCanonical.keys.toSet());
+  // Every marker this profile has a value for in ANY report (plus any
+  // custom marker already registered), shown as a row regardless of
+  // whether it has a value for the currently-viewed report — so "the
+  // marker exists but wasn't extracted from this PDF" is just a blank,
+  // tappable row rather than a separate add-flow. Markers Track Blood
+  // knows about but this profile has never tested are NOT shown here —
+  // that'd make this list every marker in the parser's catalog (hundreds),
+  // most of them irrelevant to this profile. Those are only surfaced via
+  // search (see _searchRows), which also matches on keyword, not just
+  // canonical name.
+  List<(String?, String?)> get _groupedRows => _rowsFor(_valuesByCanonical.keys.toSet());
+
+  List<(String?, String?)> _rowsFor(Set<String> present) {
     final rows = <(String?, String?)>[]; // (groupLabel, canonical) — one non-null
     final grouped = <String>{};
     for (final g in ParserConfig.instance.markerGroups) {
@@ -102,6 +108,36 @@ class _ReportTabState extends State<ReportTab> {
     if (ungrouped.isNotEmpty) {
       rows.add(('Other', null));
       for (final k in ungrouped) rows.add((null, k));
+    }
+    return rows;
+  }
+
+  // While searching, results come in two tiers: markers this profile has
+  // already tested (grouped the same way as the default list, so a search
+  // narrowing to a couple of familiar markers still looks/feels the same),
+  // followed by markers Track Blood recognizes but this profile hasn't
+  // tested yet, matched against either the canonical name or any keyword
+  // the parser would recognize it by (e.g. "baso" finds "Basophils
+  // Absolute" even though "baso" isn't a substring of that name).
+  List<(String?, String?)> _searchRows(String query) {
+    final q = query.toLowerCase();
+    final seen = _valuesByCanonical.keys.toSet();
+    final config = ParserConfig.instance;
+    final byKeyword = config.markersMatchingKeyword(query).where(config.refRanges.containsKey).toSet();
+    // Seen markers (including custom ones, which aren't in refRanges at
+    // all) match by name directly; catalog-only markers additionally match
+    // by keyword, since those are the ones a name-only search would miss.
+    final matchedSeen = seen.where((c) => c.toLowerCase().contains(q) || byKeyword.contains(c)).toSet();
+    final catalogMatches = config.refRanges.keys
+        .where((c) => c.toLowerCase().contains(q))
+        .toSet()
+        .union(byKeyword)
+        .difference(seen);
+
+    final rows = _rowsFor(matchedSeen);
+    if (catalogMatches.isNotEmpty) {
+      rows.add(('Other markers', null));
+      for (final k in catalogMatches.toList()..sort()) rows.add((null, k));
     }
     return rows;
   }
@@ -308,9 +344,9 @@ class _ReportTabState extends State<ReportTab> {
   // in some other report (but not this one) already shows up as a blank,
   // fillable row in the filtered list below, same as a regular unvalued
   // marker; no separate add-flow needed for that case.
-  // Only reachable when the search query matched nothing in _groupedRows
-  // (every known marker, so this really is unrecognized). Registers the
-  // typed name verbatim — it can't be renamed afterward, and future PDF
+  // Only reachable when _searchRows matched nothing — neither a tested
+  // marker, nor a catalog name/keyword — so this really is unrecognized.
+  // Registers the typed name verbatim — it can't be renamed afterward, and future PDF
   // imports still won't extract it automatically, since parser-core.mjs's
   // keyword table has no entry for it — but it becomes a normal row with
   // full value/unit-edit and chart support from here on.
@@ -435,25 +471,22 @@ class _ReportTabState extends State<ReportTab> {
     );
   }
 
-  // Search filters the profile-wide marker union shown below — starts
-  // matching from the first character (unlike Timeline's 3-char minimum),
-  // since this list (every known marker, now that _groupedRows is
-  // profile-union ∪ ParserConfig's full canonical set) is at most a couple
-  // hundred entries, not a free-text corpus. If a query matches nothing at
-  // all, that's the signal the marker isn't one Track Blood recognizes —
-  // the only remaining option is registering it as a custom marker.
-  // ListView.builder, not a plain ListView(children: [...]) for the
-  // unfiltered (no search query) case — the full marker list can run into
-  // the hundreds, and building that many ValueCells (each owning a
-  // TextEditingController) eagerly blocked the main thread badly enough to
-  // freeze the frame pipeline on scroll. A filtered result set is small
-  // enough to build eagerly without that risk.
+  // Unfiltered, this is just the (small) set of markers this profile has
+  // actually tested — see _groupedRows. Search starts matching from the
+  // first character (unlike Timeline's 3-char minimum) and, via
+  // _searchRows, also reaches into the full parser catalog by name or
+  // keyword, so a marker this profile has never tested can still be found
+  // and added. If a query matches nothing at all — not even a keyword —
+  // that's the signal the marker isn't one Track Blood recognizes, and the
+  // only remaining option is registering it as a custom marker.
+  // ListView.builder, not a plain ListView(children: [...]), since a
+  // catalog-wide search can still return a lot of rows, and building that
+  // many ValueCells (each owning a TextEditingController) eagerly blocked
+  // the main thread badly enough to freeze the frame pipeline on scroll.
   Widget _extractedTable(Map<String, Object?> report) {
     final reportId = report['id'] as int;
     final query = _searchCtrl.text.trim();
-    final rows = query.isEmpty
-        ? _groupedRows
-        : _groupedRows.where((r) => r.$2 != null && r.$2!.toLowerCase().contains(query.toLowerCase())).toList();
+    final rows = query.isEmpty ? _groupedRows : _searchRows(query);
 
     return Column(children: [
       Padding(
@@ -499,6 +532,7 @@ class _ReportTabState extends State<ReportTab> {
                   }
                   return Column(children: [
                     _MarkerRow(
+                      key: ValueKey(row.$2),
                       canonical: row.$2!,
                       cell: _valuesByCanonical[row.$2]?[reportId],
                       reportId: reportId,
@@ -537,7 +571,7 @@ class _MarkerRow extends StatefulWidget {
   final int reportId;
   final int profileId;
   final VoidCallback onSaved;
-  const _MarkerRow({required this.canonical, required this.cell, required this.reportId, required this.profileId, required this.onSaved});
+  const _MarkerRow({super.key, required this.canonical, required this.cell, required this.reportId, required this.profileId, required this.onSaved});
 
   @override
   State<_MarkerRow> createState() => _MarkerRowState();

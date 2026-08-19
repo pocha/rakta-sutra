@@ -2,8 +2,6 @@
 // (lines ~130-215) — kept native rather than bridged through the hidden
 // WebView because these run on every keystroke/dropdown change (see plan §1).
 // Only parsePDF() and the free-text parsers stay JS (parser_bridge.dart).
-import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
 
 class UnitOption {
   final String unit;
@@ -29,32 +27,52 @@ class RefBounds {
 }
 
 class ParserConfig {
-  ParserConfig._(this.valueLimits, this.refRanges, this.markerGroups, this.units);
+  ParserConfig._(this.valueLimits, this.refRanges, this.markerGroups, this.units, this.wordMap);
 
   final Map<String, List<double>> valueLimits;
   final Map<String, String> refRanges;
   final List<MarkerGroup> markerGroups;
   final Map<String, List<UnitOption>> units;
+  // KEYWORD -> [canonical, ...], keys pre-normalized (uppercase, no spaces)
+  // — same shape parser-core.mjs matches PDF text tokens against. Reused
+  // here for marker search: a query normalized the same way and checked as
+  // a substring of each key finds markers by any keyword the parser would
+  // recognize, not just by their canonical display name.
+  final Map<String, List<String>> wordMap;
 
   static ParserConfig? _instance;
   static ParserConfig get instance {
     final i = _instance;
-    if (i == null) throw StateError('ParserConfig.load() not called yet');
+    if (i == null) throw StateError('ParserConfig.reconfigure() not called yet');
     return i;
   }
 
-  static Future<void> load() async {
-    if (_instance != null) return;
-    final raw = jsonDecode(await rootBundle.loadString('assets/parser-config.json')) as Map<String, dynamic>;
+  // Re-points the singleton at freshly-synced config+wordmap data (see
+  // ParserConfigSync) — always overwrites, since this is called specifically
+  // when newer data than whatever's currently loaded has shown up.
+  static void reconfigure(Map<String, dynamic> raw, Map<String, dynamic> wordMapRaw) {
     _instance = ParserConfig._(
       (raw['valueLimits'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as List).map((n) => (n as num).toDouble()).toList())),
       (raw['refRanges'] as Map<String, dynamic>).map((k, v) => MapEntry(k, v as String)),
       (raw['markerGroups'] as List).map((g) => MarkerGroup.fromJson(g as Map<String, dynamic>)).toList(),
       (raw['units'] as Map<String, dynamic>).map((k, v) => MapEntry(k, (v as List).map((u) => UnitOption.fromJson(u as Map<String, dynamic>)).toList())),
+      wordMapRaw.map((k, v) => MapEntry(k, (v as List).cast<String>())),
     );
   }
 
   List<UnitOption> unitsFor(String canonical) => units[canonical] ?? const [];
+
+  // Known canonicals whose name a normalized [query] appears in as a
+  // keyword — e.g. "baso" matches "ABSOLUTEBASOPHIL" -> Basophils Absolute.
+  Set<String> markersMatchingKeyword(String query) {
+    final norm = query.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (norm.isEmpty) return const {};
+    final result = <String>{};
+    for (final entry in wordMap.entries) {
+      if (entry.key.contains(norm)) result.addAll(entry.value);
+    }
+    return result;
+  }
 
   double? markerUnitScale(String canonical, String? unitsText) {
     if (unitsText == null || unitsText.isEmpty) return null;
