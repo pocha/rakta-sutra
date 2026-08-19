@@ -136,7 +136,7 @@ class _ReportTabState extends State<ReportTab> {
               parsed.date ?? '',
             );
           } else if (reportDate == null && mounted) {
-            reportDate = await _promptDate('Could not detect a date in "${file.name}".\nEnter the report date (YYYY-MM-DD):', '');
+            reportDate = await _promptDateParts('Could not detect a date in "${file.name}". Enter the report date:');
           }
           if (reportDate == null || reportDate.isEmpty) continue;
 
@@ -205,6 +205,74 @@ class _ReportTabState extends State<ReportTab> {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('OK')),
         ],
+      ),
+    );
+  }
+
+  static const _monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  // Day/month/year as three separate fields rather than one free-text
+  // "YYYY-MM-DD" box — used specifically when date extraction failed
+  // outright, where the user is entering a date from scratch (as opposed
+  // to the ambiguous-date case, which is a choice between two dates the
+  // parser already found and _promptDate's single field already suits).
+  Future<String?> _promptDateParts(String message) async {
+    final dayCtrl = TextEditingController();
+    final yearCtrl = TextEditingController();
+    int? month;
+    return showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(message),
+            const SizedBox(height: 16),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: dayCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'Day', isDense: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: DropdownButtonFormField<int>(
+                  initialValue: month,
+                  isExpanded: true,
+                  hint: const Text('Month'),
+                  decoration: const InputDecoration(isDense: true),
+                  items: [for (var m = 1; m <= 12; m++) DropdownMenuItem(value: m, child: Text(_monthNames[m - 1]))],
+                  onChanged: (v) => setDialogState(() => month = v),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: yearCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: '2026', isDense: true),
+                ),
+              ),
+            ]),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () {
+                final day = int.tryParse(dayCtrl.text.trim());
+                final year = int.tryParse(yearCtrl.text.trim());
+                if (day == null || month == null || year == null) return;
+                final iso = '${year.toString().padLeft(4, '0')}-${month!.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+                Navigator.pop(context, iso);
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -287,6 +355,34 @@ class _ReportTabState extends State<ReportTab> {
 
   @override
   Widget build(BuildContext context) {
+    final scaffold = _buildScaffold(context);
+    // A full-screen modal overlay during import (rather than the small
+    // inline status text this replaced) — parsing a report can take a few
+    // seconds, and it wasn't obvious the app was doing anything if you
+    // tapped away from that small text.
+    if (_status == null) return scaffold;
+    return Stack(children: [
+      scaffold,
+      Positioned.fill(
+        child: Container(
+          color: Colors.black45,
+          alignment: Alignment.center,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(_status!, textAlign: TextAlign.center),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     _consumeJump(context.watch<AppState>());
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_reports.isEmpty) {
@@ -304,16 +400,15 @@ class _ReportTabState extends State<ReportTab> {
     return Scaffold(
       floatingActionButton: _fabButton(),
       body: Column(children: [
-        if (_status != null) Padding(padding: const EdgeInsets.all(8), child: Text(_status!)),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            IconButton(icon: const Icon(Icons.chevron_left), onPressed: _reportIndex == 0 ? null : () => _goToPage(-1)),
+            _navChevron(Icons.chevron_left, _reportIndex == 0 ? null : () => _goToPage(-1)),
             Column(children: [
               Text(formatDateIso(report['date'] as String), style: const TextStyle(fontWeight: FontWeight.bold)),
               Text(relativeLabel(DateTime.parse(report['date'] as String)), style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ]),
-            IconButton(icon: const Icon(Icons.chevron_right), onPressed: _reportIndex == _reports.length - 1 ? null : () => _goToPage(1)),
+            _navChevron(Icons.chevron_right, _reportIndex == _reports.length - 1 ? null : () => _goToPage(1)),
           ]),
         ),
         Padding(
@@ -420,6 +515,17 @@ class _ReportTabState extends State<ReportTab> {
 
   Widget _fabButton() {
     return FloatingActionButton(onPressed: _pickAndUpload, child: const Icon(Icons.add));
+  }
+
+  // Same soft-pink-background/accent-icon treatment as the FAB, so the
+  // prev/next report chevrons read as tappable rather than plain decoration.
+  Widget _navChevron(IconData icon, VoidCallback? onPressed) {
+    final enabled = onPressed != null;
+    return Material(
+      color: enabled ? kAccentSoft : Colors.transparent,
+      shape: const CircleBorder(),
+      child: IconButton(icon: Icon(icon, color: enabled ? kAccent : kMuted), onPressed: onPressed),
+    );
   }
 
   String _bytesToBase64(List<int> bytes) => base64Encode(bytes);
