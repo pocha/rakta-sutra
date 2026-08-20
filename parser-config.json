@@ -657,7 +657,7 @@
     "AGRATIO": ["Albumin/Globulin Ratio"],
     "ALANINE": ["ALT (Alanine Transaminase)"],
     "ALBUMIN": ["Albumin", "Albumin/Globulin Ratio", "Urinary Microalbumin", "Urine Albumin/Creatinine Ratio"],
-    "ALP": ["Alkaline Phosphatase", "Alpha-Fetoprotein", "Total Protein", "Lipoprotein(a)", "Vitamin E"],
+    "ALP": ["Alkaline Phosphatase", "Alpha-Fetoprotein", "Total Protein", "Lipoprotein(a)", "Vitamin E", "Total PSA"],
     "ALPHA": ["Alpha-Fetoprotein", "Vitamin E"],
     "ALPHATOCOPHEROL": ["Vitamin E"],
     "ALT": ["ALT (Alanine Transaminase)", "AST/ALT Ratio"],
@@ -668,7 +668,7 @@
     "APOBA1": ["Apolipoprotein B/A1 Ratio"],
     "APOLIPOPROTEIN": ["Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio"],
     "ASPARTATE": ["AST (Aspartate Aminotransferase)"],
-    "AST": ["AST (Aspartate Aminotransferase)", "AST/ALT Ratio"],
+    "AST": ["AST (Aspartate Aminotransferase)", "AST/ALT Ratio", "Fasting Glucose"],
     "BASOPHIL": ["Basophils %", "Basophils Absolute"],
     "BILIRUBIN": ["Bilirubin Total", "Bilirubin Direct", "Bilirubin Indirect"],
     "BLOODUREA": ["Urea", "Blood Urea Nitrogen", "Blood Urea Nitrogen/Creatinine Ratio"],
@@ -707,7 +707,7 @@
     "HIGHSENSITIVITYCREACTIVEPROTEIN": ["High Sensitivity CRP"],
     "HORMONE": ["Luteinizing Hormone (LH)", "Follicle Stimulating Hormone (FSH)", "Thyroid Stimulating Hormone"],
     "HSCRP": ["High Sensitivity CRP"],
-    "IGE": ["Immunoglobulin E"],
+    "IGE": ["Immunoglobulin E", "Cancer Antigen 125", "Cancer Antigen 15-3", "Carbohydrate Antigen 19-9", "Carcinoembryonic Antigen"],
     "IGG": ["Immunoglobulin G"],
     "IGM": ["Immunoglobulin M"],
     "IMMATUREGRANULOCYTE": ["Immature Granulocytes %", "Immature Granulocytes Absolute"],
@@ -719,9 +719,9 @@
     "LDL": ["LDL Cholesterol", "VLDL Cholesterol", "LDL/HDL Ratio", "HDL/LDL Ratio"],
     "LEUCOCYTE": ["White Blood Cell Count"],
     "LEUKOCYTE": ["White Blood Cell Count"],
-    "LH": ["Luteinizing Hormone (LH)"],
+    "LH": ["Luteinizing Hormone (LH)", "Cholesterol/HDL Ratio", "LDL/HDL Ratio"],
     "LIPOPROTEIN": ["HDL Cholesterol", "LDL Cholesterol", "VLDL Cholesterol", "Apolipoprotein B", "Apolipoprotein A1", "Apolipoprotein B/A1 Ratio", "Lipoprotein(a)"],
-    "LIPOPROTEINA": ["Lipoprotein(a)"],
+    "LIPOPROTEINA": ["Lipoprotein(a)", "Apolipoprotein A1"],
     "LPA": ["Lipoprotein(a)"],
     "LYMPHOCYTE": ["Lymphocytes %", "Lymphocytes Absolute", "Neutrophil Lymphocyte Ratio"],
     "MCH": ["Mean Corpuscular Hemoglobin"],
@@ -740,7 +740,7 @@
     "PROSTATESPECIFICANTIGEN": ["Total PSA"],
     "PROTEIN": ["Total Protein", "Albumin", "Globulin", "High Sensitivity CRP"],
     "PSA": ["Total PSA"],
-    "RATIO": ["Neutrophil Lymphocyte Ratio", "AST/ALT Ratio", "Albumin/Globulin Ratio", "Blood Urea Nitrogen/Creatinine Ratio", "Urea/Creatinine Ratio", "Apolipoprotein B/A1 Ratio", "Platelet Large Cell Ratio", "Urine Albumin/Creatinine Ratio", "Cholesterol/HDL Ratio", "LDL/HDL Ratio", "HDL/LDL Ratio"],
+    "RATIO": ["Neutrophil Lymphocyte Ratio", "AST/ALT Ratio", "Albumin/Globulin Ratio", "Blood Urea Nitrogen/Creatinine Ratio", "Urea/Creatinine Ratio", "Apolipoprotein B/A1 Ratio", "Platelet Large Cell Ratio", "Urine Albumin/Creatinine Ratio", "Cholesterol/HDL Ratio", "LDL/HDL Ratio", "HDL/LDL Ratio", "Glomerular Filtration Rate (eGFR)", "Mean Corpuscular Hemoglobin Concentration", "Transferrin Saturation"],
     "RBC": ["RBC Count"],
     "RDW": ["Red Cell Distribution Width-CV", "Red Cell Distribution Width-SD"],
     "RDWCV": ["Red Cell Distribution Width-CV"],
@@ -773,6 +773,19 @@
     "VOLUME": ["Mean Corpuscular Volume", "Mean Platelet Volume"],
     "WBC": ["White Blood Cell Count"],
     "WHITECELLCOUNT": ["White Blood Cell Count"]
+  },
+  "_rejectedKeywordCandidates": {
+    "_comment": "JSON has no comment syntax, so this lives as an inert root-level field instead — parser-core.mjs/configureParser() only reads the specific top-level keys it knows about, so this is never merged into KEYWORD_MAP. Markers here are genuine SUBSTRING COLLISION hits from test-parser-config.js that were deliberately tried and reverted after they caused real fixture regressions (see git history on the 'fix-wordmap' branch). test-parser-config.js reads this same object and labels these specific pairs 'KNOWN REJECTED' instead of re-flagging them as unreviewed — do not re-add without new evidence a specific report actually needs it.",
+    "PROTEIN": {
+      "Alpha-Fetoprotein": "Regressed 2025_August_MedPlus_Hyd.pdf: stole Total Protein's value (7.2) — Total Protein went MISSED, Alpha-Fetoprotein went SPURIOUS with the same number.",
+      "Apolipoprotein A1": "Regressed orange.pdf: Apolipoprotein A1 went WRONG (116.23 -> 39), part of a lipid-panel cross-contamination cascade shared with the other Apolipoprotein/Lipoprotein(a) entries below.",
+      "Apolipoprotein B": "Regressed orange.pdf: Apolipoprotein B went WRONG (111.01 -> 159), same cascade.",
+      "Apolipoprotein B/A1 Ratio": "Regressed orange.pdf alongside the other Apolipoprotein/PROTEIN entries — same shared-keyword cross-contamination, also dragged Cholesterol/HDL Ratio and LDL Cholesterol WRONG on that file.",
+      "Lipoprotein(a)": "Regressed orange.pdf: caused a SPURIOUS Lipoprotein(a) value (30) that shouldn't have matched at all."
+    },
+    "INR": {
+      "Albumin/Globulin Ratio": "Regressed innoquest-password-protected.pdf: INR coverage dropped from 50% to 0%, entirely missed — INR lost the tie to Albumin/Globulin Ratio."
+    }
   },
   "colPatterns": {
     "test": { "source": "\\b(test|test\\s*name|investigation|parameter)\\b", "flags": "i" },
