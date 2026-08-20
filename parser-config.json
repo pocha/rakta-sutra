@@ -696,7 +696,7 @@
     "FSH": ["Follicle Stimulating Hormone (FSH)"],
     "GAMMAGT": ["Gamma-Glutamyl Transferase"],
     "GGT": ["Gamma-Glutamyl Transferase"],
-    "GLOBULIN": ["Globulin", "Albumin/Globulin Ratio"],
+    "GLOBULIN": ["Globulin", "Albumin/Globulin Ratio", "Immunoglobulin A", "Immunoglobulin G", "Immunoglobulin M", "Immunoglobulin E"],
     "GLUCOSE": ["Fasting Glucose", "Average Blood Glucose"],
     "HBA1C": ["Glycated Hemoglobin (HbA1c)"],
     "HCT": ["Hematocrit"],

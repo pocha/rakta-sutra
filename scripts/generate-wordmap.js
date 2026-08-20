@@ -32,16 +32,21 @@
 //       key is dropped (that key is often deliberately shared across
 //       multiple markers, e.g. "VITAMIN", and must never be silently
 //       overwritten by a single-marker auto-generated entry).
-//     - A candidate explicitly proposed by two different markers: if
-//       exactly one proposal is that marker's *entire* compact name (not
-//       just a partial prefix of a longer sibling), the full-name owner
-//       keeps it — e.g. "APOLIPOPROTEINB" is "Apolipoprotein B"'s whole
-//       identity but only a partial prefix of "Apolipoprotein B/A1 Ratio",
-//       so "Apolipoprotein B" keeps it (mirrors "VITAMIND" staying the
-//       shared base keyword while "Vitamin D2"/"D3" rely on their own
-//       longer keywords instead of needing "VITAMIND" itself). If neither
-//       or both sides are full-name matches, drop both — not expected given
-//       the conservative rules above, but safe to bail on.
+//     - A candidate proposed by more than one marker is kept as a SHARED
+//       keyword — every proposing marker becomes a target, same shape as a
+//       hand-curated ambiguous keyword like "GLOBULIN" or "VITAMIN". This
+//       used to resolve to a single "full name" owner (or drop the keyword
+//       entirely if no single owner was obvious) on the theory that the
+//       losing marker(s) would always have their own separate, unambiguous
+//       keyword to fall back on — but test-parser-config.js's collision
+//       audit showed that assumption doesn't always hold (e.g. "Mean
+//       Corpuscular Hemoglobin Concentration" has no fallback that reliably
+//       distinguishes it from "Mean Corpuscular Hemoglobin"/"...Volume" at
+//       this prefix length). Accumulating every claimant instead means no
+//       valid candidate is silently dropped; parser-core.mjs's
+//       ref-range/unit-based disambiguation is what's actually responsible
+//       for picking the right one when a shared keyword fires on a report
+//       line, exactly as it already does for hand-curated shared keywords.
 //     - A candidate proposed by only one marker, but which is *also* an
 //       accidental substring of some OTHER marker's full compact name (one
 //       that never proposed it itself — e.g. "NEUTROPHILS", proposed only
@@ -82,77 +87,70 @@ const markers = Object.keys(config.valueLimits);
 const markerCompact = new Map(markers.map(m => [m, compact(m)]));
 
 // Pass 1 — collect every marker's own candidates independently.
-// proposals: candidate string -> [{ marker, isFullName }, ...]
+// proposals: candidate string -> [marker, ...]
 const proposals = new Map();
-function propose(kw, marker, isFullName) {
+function propose(kw, marker) {
   if (!proposals.has(kw)) proposals.set(kw, []);
-  proposals.get(kw).push({ marker, isFullName });
+  proposals.get(kw).push(marker);
 }
 
 for (const marker of markers) {
   const tokens = tokenize(marker);
   if (tokens.length === 1) {
-    propose(tokens[0], marker, true);
+    propose(tokens[0], marker);
     continue;
   }
   for (let len = 2; len <= tokens.length; len++) {
-    propose(tokens.slice(0, len).join(''), marker, len === tokens.length);
+    propose(tokens.slice(0, len).join(''), marker);
   }
   if (tokens.length === 2) {
-    // The reversed order is never this marker's canonical full name (that's
-    // the forward order) — always a partial-strength claim.
-    propose(tokens.slice().reverse().join(''), marker, false);
+    propose(tokens.slice().reverse().join(''), marker);
   }
 
   // Same cumulative-prefix/reversal generation again, but with each token
-  // that has a naive singular form swapped in — never this marker's own
-  // full name (that's the plural form above), always partial-strength.
+  // that has a naive singular form swapped in — a real report sometimes
+  // prints the singular cell-type name ("Absolute Basophil Count") even
+  // though our own marker name is plural ("Basophils Absolute").
   const singularTokens = tokens.map(t => singularize(t) ?? t);
   if (singularTokens.some((t, i) => t !== tokens[i])) {
     for (let len = 2; len <= singularTokens.length; len++) {
-      propose(singularTokens.slice(0, len).join(''), marker, false);
+      propose(singularTokens.slice(0, len).join(''), marker);
     }
     if (singularTokens.length === 2) {
-      propose(singularTokens.slice().reverse().join(''), marker, false);
+      propose(singularTokens.slice().reverse().join(''), marker);
     }
   }
 }
 
 // Pass 2 — resolve.
 const wordMap = {};
-let skippedExisting = 0, skippedAmbiguous = 0, skippedForeignSubstring = 0;
+let skippedExisting = 0, sharedCount = 0, skippedForeignSubstring = 0;
 
 for (const [kw, claimants] of proposals) {
   if (existingKeywords.has(kw)) { skippedExisting++; continue; }
 
-  let owner;
-  if (claimants.length === 1) {
-    owner = claimants[0].marker;
-  } else {
-    const fullNameClaimants = claimants.filter(c => c.isFullName);
-    if (fullNameClaimants.length === 1) {
-      owner = fullNameClaimants[0].marker;
-      console.error(`RESOLVING ambiguous auto-keyword "${kw}": giving it to "${owner}" (its full name) over ${claimants.filter(c => c.marker !== owner).map(c => `"${c.marker}"`).join(', ')} (only a partial prefix there)`);
-    } else {
-      console.error(`SKIPPING ambiguous auto-keyword "${kw}": ${claimants.map(c => `"${c.marker}"`).join(' and ')} would all claim it`);
-      skippedAmbiguous++;
-      continue;
-    }
-  }
+  // Every distinct marker that proposed this candidate keeps it — no single
+  // "owner" is chosen. A marker can appear more than once in claimants (its
+  // plain-token and singularized-token proposals can coincide), so dedupe.
+  const owners = [...new Set(claimants)];
 
-  // Markers that already explicitly proposed this candidate (win or lose)
-  // were accounted for above — only a marker that never proposed it at all,
-  // yet still happens to contain it as a substring, counts as a "foreign"
-  // collision here.
-  const claimantMarkers = new Set(claimants.map(c => c.marker));
+  // Markers that already explicitly proposed this candidate (whether or not
+  // they end up sharing it) were accounted for above — only a marker that
+  // never proposed it at all, yet still happens to contain it as a
+  // substring, counts as a "foreign" collision here.
+  const claimantMarkers = new Set(owners);
   const collidesForeign = [...markerCompact].some(([otherMarker, otherCompact]) =>
     !claimantMarkers.has(otherMarker) && otherCompact.includes(kw));
   if (collidesForeign) { skippedForeignSubstring++; continue; }
 
-  wordMap[kw] = [owner];
+  if (owners.length > 1) {
+    sharedCount++;
+    console.error(`SHARING auto-keyword "${kw}" among ${owners.length} markers: ${owners.map(o => `"${o}"`).join(', ')}`);
+  }
+  wordMap[kw] = owners;
 }
 
-console.log(`Generated ${Object.keys(wordMap).length} keywords from ${markers.length} markers (${skippedExisting} skipped for colliding with an existing keywordMap key, ${skippedAmbiguous} skipped as unresolvably ambiguous, ${skippedForeignSubstring} skipped for being a substring of a different marker's name).`);
+console.log(`Generated ${Object.keys(wordMap).length} keywords from ${markers.length} markers (${skippedExisting} skipped for colliding with an existing keywordMap key, ${sharedCount} shared among multiple markers, ${skippedForeignSubstring} skipped for being a substring of a different marker's name).`);
 
 // Alphabetical (case-insensitive) so the output is easy to scan/diff by hand
 // — matches parser-config.json's own key ordering.
