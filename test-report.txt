@@ -1,5 +1,5 @@
 Track Blood — parser regression report
-Generated: 2026-08-19T08:14:45.585Z
+Generated: 2026-08-20T12:01:49.459Z
 
 orange.pdf: coverage 98.7%  error 1.3%  spurious 0
   WRONG     AST/ALT Ratio (expected 1, got 0.96)
@@ -15,7 +15,8 @@ centro-med.pdf: coverage 98.2%  error 0.0%  spurious 0
 
 aarthi-scans.pdf: coverage 100.0%  error 0.0%  spurious 0
 
-neuberg-anand.pdf: coverage 100.0%  error 0.0%  spurious 0
+neuberg-anand.pdf: coverage 100.0%  error 0.0%  spurious 1
+  SPURIOUS  Mean Corpuscular Hemoglobin (got 29.2)
 
 innoquest.pdf: coverage 100.0%  error 0.0%  spurious 0
 
@@ -95,4 +96,4 @@ australia.pdf: coverage 41.7%  error 37.5%  spurious 5
   SPURIOUS  AST (Aspartate Aminotransferase) (got 20)
 
 ─────────────────────────────────────────────────────────────────
-TOTAL (21/21 files with fixtures): coverage 94.1%  error 1.4%  spurious 10
+TOTAL (21/21 files with fixtures): coverage 94.1%  error 1.4%  spurious 11
